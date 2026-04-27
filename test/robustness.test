@@ -1,0 +1,210 @@
+# ── fin_functions: Robustness / crash-prevention tests ───────────────────────
+#
+# Every test here verifies that bad input produces NULL rather than a crash.
+# These are the edge cases most likely to be hit by real users.
+
+statement ok
+LOAD '__BUILD_DIRECTORY__/fin_functions.duckdb_extension';
+
+# ── General NULL propagation ──────────────────────────────────────────────────
+
+# All functions must return NULL (not crash) on these degenerate inputs:
+
+# IRR: only one cash flow
+query R
+SELECT irr('-1000') IS NULL;
+----
+true
+
+# IRR: empty
+query R
+SELECT irr('') IS NULL;
+----
+true
+
+# MIRR: only negatives
+query R
+SELECT mirr('-100,-200,-300', 0.10, 0.12) IS NULL;
+----
+true
+
+# NPV: non-numeric tokens
+query R
+SELECT npv(0.10, '100,abc,300') IS NULL;
+----
+true
+
+# XNPV: dates and values length mismatch
+query R
+SELECT xnpv(0.09, '-1000,500,600', '2020-01-01,2020-06-01') IS NULL;
+----
+true
+
+# XIRR: only positive cash flows
+query R
+SELECT xirr('100,200,300', '2020-01-01,2020-06-01,2021-01-01') IS NULL;
+----
+true
+
+# ── Coupon functions: settlement >= maturity ──────────────────────────────────
+
+query R
+SELECT coupdaybs('2030-01-01', '2020-01-01', 2.0, 0.0) IS NULL;
+----
+true
+
+query R
+SELECT coupdays('2020-01-01', '2020-01-01', 2.0, 0.0) IS NULL;
+----
+true
+
+query R
+SELECT coupdaysnc('2030-01-01', '2025-01-01', 2.0, 1.0) IS NULL;
+----
+true
+
+query R
+SELECT coupncd('2030-01-01', '2020-01-01', 2.0, 1.0) IS NULL;
+----
+true
+
+query R
+SELECT couppcd('2030-01-01', '2020-01-01', 2.0, 1.0) IS NULL;
+----
+true
+
+query R
+SELECT coupnum('2030-01-01', '2020-01-01', 2.0, 1.0) IS NULL;
+----
+true
+
+# ── Bond functions: settlement >= maturity ────────────────────────────────────
+
+query R
+SELECT price('2030-01-01', '2020-01-01', 0.05, 0.06, 100.0, 2.0, 0.0) IS NULL;
+----
+true
+
+query R
+SELECT yield('2030-01-01', '2020-01-01', 0.05, 95.0, 100.0, 2.0, 0.0) IS NULL;
+----
+true
+
+query R
+SELECT duration('2030-01-01', '2020-01-01', 0.08, 0.09, 2.0, 1.0) IS NULL;
+----
+true
+
+# ── Annuity bounds ────────────────────────────────────────────────────────────
+
+# IPMT: period before range
+query R
+SELECT ipmt(0.05, -1.0, 12.0, 10000.0, 0.0, false) IS NULL;
+----
+true
+
+# IPMT: period = 0
+query R
+SELECT ipmt(0.05, 0.0, 12.0, 10000.0, 0.0, false) IS NULL;
+----
+true
+
+# IPMT: period beyond nper
+query R
+SELECT ipmt(0.05, 100.0, 12.0, 10000.0, 0.0, false) IS NULL;
+----
+true
+
+# CUMIPMT: start > end
+query R
+SELECT cumipmt(0.05, 12.0, 10000.0, 6.0, 3.0, false) IS NULL;
+----
+true
+
+# CUMIPMT: start = 0
+query R
+SELECT cumipmt(0.05, 12.0, 10000.0, 0.0, 6.0, false) IS NULL;
+----
+true
+
+# CUMPRINC: end > nper
+query R
+SELECT cumprinc(0.05, 12.0, 10000.0, 1.0, 999.0, false) IS NULL;
+----
+true
+
+# RATE: nper = 0
+query R
+SELECT rate(0.0, -100.0, 1000.0, 0.0, false, 0.1) IS NULL;
+----
+true
+
+# ISPMT: per > nper
+query R
+SELECT ispmt(0.05, 99.0, 12.0, 10000.0) IS NULL;
+----
+true
+
+# ── Division by zero / degenerate inputs ──────────────────────────────────────
+
+# SLN: life = 0
+query R
+SELECT sln(1000.0, 100.0, 0.0) IS NULL;
+----
+true
+
+# EFFECT: npery = 0
+query R
+SELECT effect(0.05, 0.0) IS NULL;
+----
+true
+
+# NOMINAL: npery = 0
+query R
+SELECT nominal(0.05, 0.0) IS NULL;
+----
+true
+
+# RRI: pv = 0
+query R
+SELECT rri(12.0, 0.0, 1000.0) IS NULL;
+----
+true
+
+# RRI: nper = 0
+query R
+SELECT rri(0.0, 1000.0, 2000.0) IS NULL;
+----
+true
+
+# AMORDEGRC: rate = 0
+query R
+SELECT amordegrc(2400.0, 0.0, 365.0, 300.0, 1.0, 0.0, 1.0) IS NULL;
+----
+true
+
+# TBILLEQ: bad maturity date
+query R
+SELECT tbilleq('2020-01-01', 'not-a-date', 0.09) IS NULL;
+----
+true
+
+# ── All 55 functions load correctly ───────────────────────────────────────────
+
+query I
+SELECT COUNT(*) FROM duckdb_functions()
+WHERE function_name IN (
+    'fv','pv','pmt','ipmt','ppmt','cumipmt','cumprinc','nper','rate','ispmt',
+    'npv','irr','mirr','xnpv','xirr',
+    'sln','syd','db','ddb','vdb','amorlinc','amordegrc',
+    'coupdaybs','coupdays','coupdaysnc','coupncd','couppcd','coupnum',
+    'price','pricedisc','pricemat','yield','yielddisc','yieldmat',
+    'disc','intrate','received','duration','mduration','accrint','accrintm',
+    'effect','nominal','dollarde','dollarfr','fvschedule','rri','pduration',
+    'tbillprice','tbillyield','tbilleq',
+    'oddfprice','oddfyield','oddlprice','oddlyield'
+)
+AND function_type = 'scalar'
+AND description IS NULL;
+----
+55

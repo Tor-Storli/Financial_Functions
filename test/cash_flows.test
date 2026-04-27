@@ -1,0 +1,150 @@
+# ── fin_functions: Cash flow function tests ───────────────────────────────────
+
+statement ok
+LOAD '__BUILD_DIRECTORY__/fin_functions.duckdb_extension';
+
+# ── NPV ───────────────────────────────────────────────────────────────────────
+
+# Excel example: NPV(10%, -10000, 3000, 4200, 6800) = 1188.44
+query R
+SELECT ROUND(npv(0.10, '-10000,3000,4200,6800'), 2);
+----
+1188.44
+
+# Excel example: NPV with initial investment now
+query R
+SELECT ROUND(npv(0.08, '8000,9200,10000,12000,14500') + (-40000), 2);
+----
+1922.06
+
+# Guard: empty string → NULL
+query R
+SELECT npv(0.10, '') IS NULL;
+----
+true
+
+# Guard: non-numeric → NULL
+query R
+SELECT npv(0.10, 'abc,def') IS NULL;
+----
+true
+
+# ── IRR ───────────────────────────────────────────────────────────────────────
+
+# Excel example: IRR after five years = 8.66%
+query R
+SELECT ROUND(irr('-70000,12000,15000,18000,21000,26000'), 4);
+----
+0.0866
+
+# Excel example: IRR after four years = -2.12%
+query R
+SELECT ROUND(irr('-70000,12000,15000,18000,21000'), 4);
+----
+-0.0212
+
+# Excel example: IRR after two years = -44.35%
+query R
+SELECT ROUND(irr('-70000,12000,15000'), 4);
+----
+-0.4435
+
+# Guard: all same sign (all positive) → NULL
+query R
+SELECT irr('100,200,300') IS NULL;
+----
+true
+
+# Guard: all same sign (all negative) → NULL
+query R
+SELECT irr('-100,-200,-300') IS NULL;
+----
+true
+
+# Guard: empty string → NULL
+query R
+SELECT irr('') IS NULL;
+----
+true
+
+# Guard: single value → NULL
+query R
+SELECT irr('-1000') IS NULL;
+----
+true
+
+# ── MIRR ──────────────────────────────────────────────────────────────────────
+
+# Excel example: MIRR after five years = 12.61%
+query R
+SELECT ROUND(mirr('-120000,39000,30000,21000,37000,46000', 0.10, 0.12), 4);
+----
+0.1261
+
+# Excel example: MIRR after three years = -4.80%
+query R
+SELECT ROUND(mirr('-120000,39000,30000,21000', 0.10, 0.12), 4);
+----
+-0.048
+
+# Excel example: MIRR five years at 14% reinvest = 13.48%
+query R
+SELECT ROUND(mirr('-120000,39000,30000,21000,37000,46000', 0.10, 0.14), 4);
+----
+0.1348
+
+# Guard: all positive → NULL
+query R
+SELECT mirr('100,200,300', 0.10, 0.12) IS NULL;
+----
+true
+
+# Guard: empty → NULL
+query R
+SELECT mirr('', 0.10, 0.12) IS NULL;
+----
+true
+
+# ── XNPV ──────────────────────────────────────────────────────────────────────
+
+# Excel example: XNPV(9%, cash flows, dates) = 2086.65
+query R
+SELECT ROUND(xnpv(0.09,
+    '-10000,2750,4250,3250,2750',
+    '2008-01-01,2008-03-01,2008-10-30,2009-02-15,2009-04-01'), 2);
+----
+2086.65
+
+# Guard: mismatched lengths → NULL
+query R
+SELECT xnpv(0.09, '-10000,2750', '2008-01-01') IS NULL;
+----
+true
+
+# Guard: bad date → NULL
+query R
+SELECT xnpv(0.09, '-10000,2750', 'not-a-date,2008-03-01') IS NULL;
+----
+true
+
+# ── XIRR ──────────────────────────────────────────────────────────────────────
+
+# Excel example: XIRR = 37.34%
+query R
+SELECT ROUND(xirr(
+    '-10000,2750,4250,3250,2750',
+    '2008-01-01,2008-03-01,2008-10-30,2009-02-15,2009-04-01'), 4);
+----
+0.3734
+
+# Guard: all same sign → NULL
+query R
+SELECT xirr('100,200,300', '2020-01-01,2020-06-01,2021-01-01') IS NULL;
+----
+true
+
+# Guard: mismatched lengths → NULL
+query R
+SELECT xirr('-10000,2750', '2008-01-01') IS NULL;
+----
+true
