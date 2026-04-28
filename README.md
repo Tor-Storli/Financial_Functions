@@ -1,7 +1,7 @@
 ---
 title: "Building a DuckDB Financial Extension in Rust"
 subtitle: "Implementing All 55 Excel-Compatible Financial Functions"
-author: "Tor Storli and <br> Claude Sonnet 4.6 (Anthropic's AI assistant)"
+author: "Tor Storli and  Claude Sonnet 4.6 (Anthropic's AI assistant)"
 date: today
 format:
   html:
