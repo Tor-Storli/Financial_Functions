@@ -25,13 +25,13 @@ pub unsafe fn read_varchar(input: &mut DataChunkHandle, col: usize, row: usize) 
     std::str::from_utf8(bytes).unwrap_or("").to_owned()
 }
 
-// pub fn parse_csv_f64(s: &str) -> Result<Vec<f64>, String> {
-//     if s.trim().is_empty() { return Err("Empty values string".into()); }
-//     s.split(',')
-//         .map(|v| v.trim().parse::<f64>()
-//             .map_err(|e| format!("Invalid number '{}': {}", v.trim(), e)))
-//         .collect()
-// }
+pub fn parse_csv_f64(s: &str) -> Result<Vec<f64>, String> {
+    if s.trim().is_empty() { return Err("Empty values string".into()); }
+    s.split(',')
+        .map(|v| v.trim().parse::<f64>()
+            .map_err(|e| format!("Invalid number '{}': {}", v.trim(), e)))
+        .collect()
+}
 
 pub fn parse_csv_dates(s: &str) -> Result<Vec<NaiveDate>, String> {
     if s.trim().is_empty() { return Err("Empty dates string".into()); }

@@ -19,6 +19,7 @@ mod depreciation;
 mod coupons;
 mod bonds;
 mod misc;
+pub mod errors;
 
 use duckdb::Connection;
 use duckdb_loadable_macros::duckdb_entrypoint_c_api;

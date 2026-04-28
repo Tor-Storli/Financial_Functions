@@ -1,0 +1,49 @@
+-----------------------------
+-- Annuity — bad nper and per
+-----------------------------
+SELECT ipmt(0.05, 0, 12, 10000, 0, false);   -- per=0, out of [1, 12]
+SELECT ipmt(0.05, 15, 12, 10000, 0, false);  -- per=15 > nper=12
+SELECT rate(-5, -500, 10000, 0, false, 0.1); -- nper negative
+SELECT cumipmt(0.05, 12, 10000, 8, 5, false); -- end(5) < start(8)
+SELECT cumipmt(0.05, 12, 10000, 0, 6, false); -- start_period=0, must be >= 1
+
+-------------------------------
+-- Cash flows — bad list inputs
+-------------------------------
+SELECT irr('5000,1000,2000');          -- all positive, no negative
+SELECT irr('-10000,abc,3000');         -- unparseable value
+SELECT xirr('-10000,3000', '2024-01-01'); -- mismatched lengths (2 values, 1 date)
+SELECT npv(0.1, '');                   -- empty values list
+
+--------------------------------
+-- Coupons — bad dates and codes
+--------------------------------
+SELECT coupdaybs('Jan 15 2024', '2030-06-15', 2, 0); -- bad date format
+SELECT coupdaybs('2030-06-15', '2024-01-01', 2, 0);  -- settlement after maturity
+SELECT coupdaybs('2024-01-01', '2030-06-15', 3, 0);  -- frequency=3 is invalid
+SELECT coupdays('2024-01-01', '2030-06-15', 2, 9);   -- basis=9 is invalid
+
+--------------------------------------
+-- Depreciation — bad cost/life/period
+--------------------------------------
+SELECT sln(10000, 15000, 5);   -- salvage > cost
+SELECT sln(-500, 0, 5);        -- negative cost
+SELECT syd(10000, 1000, 5, 7); -- period=7 > life=5
+SELECT ddb(10000, 1000, 5, 3, -2); -- negative factor
+
+------------------------------
+-- Bonds — bad dates and codes
+------------------------------
+SELECT price('2030-01-01', '2024-06-15', 0.05, 0.04, 100, 2, 0); -- maturity before settlement
+SELECT price('not-a-date', '2030-06-15', 0.05, 0.04, 100, 2, 0); -- unparseable date
+SELECT price('2024-01-01', '2030-06-15', 0.05, 0.04, 100, 3, 0); -- frequency=3 invalid
+SELECT duration('2024-01-01', '2030-06-15', 0.05, 0.04, 2, 7);   -- basis=7 invalid
+
+--------------------
+-- Misc — bad inputs
+--------------------
+SELECT effect(0.05, 0);              -- npery=0, must be >= 1
+SELECT rri(0, 1000, 2000);           -- nper=0
+SELECT tbillyield('2024-01-01', '2024-01-01', 98); -- same date, zero period
+SELECT tbilleq('2024-06-15', '2024-01-01', 0.05);  -- maturity before settlement
+SELECT fvschedule(1000, '0.05,bad,0.03'); -- unparseable rate in schedule
