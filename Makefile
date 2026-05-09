@@ -1,6 +1,24 @@
+.PHONY: clean clean_all
+
 PROJ_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
-EXT_NAME=financial_functions
-EXT_CONFIG=${PROJ_DIR}extension_config.cmake
+EXTENSION_NAME=financial_functions
+USE_UNSTABLE_C_API=1
+TARGET_DUCKDB_VERSION=v1.3.2
 
-include extension-ci-tools/makefiles/duckdb_extension.Makefile
+all: configure debug
+
+include extension-ci-tools/makefiles/c_api_extensions/base.Makefile
+include extension-ci-tools/makefiles/c_api_extensions/rust.Makefile
+
+configure: venv platform extension_version
+
+debug: build_extension_library_debug build_extension_with_metadata_debug
+release: build_extension_library_release build_extension_with_metadata_release
+
+test: test_debug
+test_debug: test_extension_debug
+test_release: test_extension_release
+
+clean: clean_build clean_rust
+clean_all: clean_configure clean
