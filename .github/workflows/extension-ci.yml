@@ -15,7 +15,6 @@ jobs:
       ci_tools_version: v1.3.2
       extension_name: financial_functions
       extra_toolchains: "rust;python3"
-      exclude_archs: "wasm_mvp;wasm_eh;wasm_threads;linux_amd64;linux_arm64;linux_amd64_musl;linux_arm64_musl"
 
   duckdb-next-build:
     name: Build extension binaries (next)
@@ -25,4 +24,3 @@ jobs:
       ci_tools_version: main
       extension_name: financial_functions
       extra_toolchains: "rust;python3"
-      exclude_archs: "wasm_mvp;wasm_eh;wasm_threads;linux_amd64;linux_arm64;linux_amd64_musl;linux_arm64_musl"
