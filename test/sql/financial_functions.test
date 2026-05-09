@@ -1,0 +1,276 @@
+## financial_functions — community CI test suite
+##
+## Uses DuckDB's SQL Logic Test (sqllogictest) format.
+## The CI runner replaces __BUILD_DIRECTORY__ with the actual binary path.
+##
+## Run locally with:
+##   duckdb --unsigned -init /dev/null \
+##     -s "LOAD '__BUILD_DIRECTORY__/financial_functions.duckdb_extension';" \
+##     test/sql/financial_functions.test
+
+# ── Load the extension ────────────────────────────────────────────────────────
+statement ok
+LOAD '__BUILD_DIRECTORY__/financial_functions.duckdb_extension';
+
+# ── Smoke-test: count registered functions ────────────────────────────────────
+query I
+SELECT COUNT(*) FROM duckdb_functions()
+WHERE function_name IN (
+    'fv','pv','pmt','ipmt','ppmt','cumipmt','cumprinc','nper','rate','ispmt',
+    'npv','irr','mirr','xnpv','xirr',
+    'sln','syd','db','ddb','vdb','amorlinc','amordegrc',
+    'coupdaybs','coupdays','coupdaysnc','coupncd','couppcd','coupnum',
+    'price','pricedisc','pricemat','yield','yielddisc','yieldmat',
+    'disc','intrate','received','duration','mduration','accrint','accrintm',
+    'effect','nominal','dollarde','dollarfr','fvschedule','rri','pduration',
+    'tbillprice','tbillyield','tbilleq',
+    'oddfprice','oddfyield','oddlprice','oddlyield'
+);
+----
+55
+
+# ── Annuity ───────────────────────────────────────────────────────────────────
+
+# FV: Excel example FV(6%/12, 10, -200, -500, true) = 2581.40
+query R
+SELECT ROUND(fv(0.06/12, 10.0, -200.0, -500.0, true), 2);
+----
+2581.4
+
+# PV: Excel example PV(8%/12, 240, 500, 0, false) = -59777.15
+query R
+SELECT ROUND(pv(0.08/12, 240.0, 500.0, 0.0, false), 2);
+----
+-59777.15
+
+# PMT: Excel example PMT(8%/12, 10, 10000, 0, false) = -1037.03
+query R
+SELECT ROUND(pmt(0.08/12, 10.0, 10000.0, 0.0, false), 2);
+----
+-1037.03
+
+# IPMT: Excel example IPMT(10%/12, 1, 3, 8000, 0, false) = -66.67
+query R
+SELECT ROUND(ipmt(0.10/12, 1.0, 3.0, 8000.0, 0.0, false), 2);
+----
+-66.67
+
+# PPMT: Excel example PPMT(10%/12, 1, 24, 2000, 0, false) = -75.62
+query R
+SELECT ROUND(ppmt(0.10/12, 1.0, 24.0, 2000.0, 0.0, false), 2);
+----
+-75.62
+
+# CUMIPMT: Excel example = -937.50
+query R
+SELECT ROUND(cumipmt(0.09/12, 360.0, 125000.0, 1.0, 1.0, false), 2);
+----
+-937.5
+
+# CUMPRINC: Excel example = -68.28
+query R
+SELECT ROUND(cumprinc(0.09/12, 360.0, 125000.0, 1.0, 1.0, false), 2);
+----
+-68.28
+
+# NPER: Excel example NPER(12%/12, -100, -1000, 10000, true) = 59.67
+query R
+SELECT ROUND(nper(0.12/12, -100.0, -1000.0, 10000.0, true), 2);
+----
+59.67
+
+# RATE: annual rate on 48-month $8000 loan at $200/month = 9.24%
+query R
+SELECT ROUND(rate(48.0, -200.0, 8000.0, 0.0, false, 0.1) * 12, 4);
+----
+0.0924
+
+# ISPMT: Excel example ISPMT(10%/12, 1, 36, 8000000) = -66666.67
+query R
+SELECT ROUND(ispmt(0.10/12, 1.0, 36.0, 8000000.0), 2);
+----
+-66666.67
+
+# ── Cash Flows ────────────────────────────────────────────────────────────────
+
+# NPV: Excel example = 1188.44
+query R
+SELECT ROUND(npv(0.10, '-10000,3000,4200,6800'), 2);
+----
+1188.44
+
+# IRR: Excel example 5-year investment = 8.66%
+query R
+SELECT ROUND(irr('-70000,12000,15000,18000,21000,26000'), 4);
+----
+0.0866
+
+# MIRR: Excel example = 12.61%
+query R
+SELECT ROUND(mirr('-120000,39000,30000,21000,37000,46000', 0.10, 0.12), 4);
+----
+0.1261
+
+# XNPV: Excel example = 2086.65
+query R
+SELECT ROUND(xnpv(0.09,
+    '-10000,2750,4250,3250,2750',
+    '2008-01-01,2008-03-01,2008-10-30,2009-02-15,2009-04-01'), 2);
+----
+2086.65
+
+# XIRR: Excel example = 37.34%
+query R
+SELECT ROUND(xirr(
+    '-10000,2750,4250,3250,2750',
+    '2008-01-01,2008-03-01,2008-10-30,2009-02-15,2009-04-01'), 4);
+----
+0.3734
+
+# ── Depreciation ──────────────────────────────────────────────────────────────
+
+# SLN: Excel example SLN(30000, 7500, 10) = 2250
+query R
+SELECT sln(30000.0, 7500.0, 10.0);
+----
+2250.0
+
+# SYD: Excel example SYD(30000, 7500, 10, 1) = 4090.91
+query R
+SELECT ROUND(syd(30000.0, 7500.0, 10.0, 1.0), 2);
+----
+4090.91
+
+# DB: Excel example DB(1000000, 100000, 6, 1, 7) = 186083.33
+query R
+SELECT ROUND(db(1000000.0, 100000.0, 6.0, 1.0, 7.0), 2);
+----
+186083.33
+
+# DDB: Excel example DDB(2400, 300, 10, 1, 2) = 480
+query R
+SELECT ddb(2400.0, 300.0, 10.0, 1.0, 2.0);
+----
+480.0
+
+# ── Coupon Dates ──────────────────────────────────────────────────────────────
+
+# COUPDAYBS: Excel example = 71
+query R
+SELECT coupdaybs('2011-01-25', '2011-11-15', 2, 1);
+----
+71.0
+
+# COUPDAYS: Excel example = 181
+query R
+SELECT coupdays('2011-01-25', '2011-11-15', 2, 1);
+----
+181.0
+
+# COUPNUM: Excel example = 4
+query R
+SELECT coupnum('2007-01-25', '2008-11-15', 2, 1);
+----
+4.0
+
+# ── Bonds & Securities ────────────────────────────────────────────────────────
+
+# PRICE: Excel example = 94.63
+query R
+SELECT ROUND(price('2008-02-15', '2017-11-15', 0.0575, 0.065, 100, 2, 0), 2);
+----
+94.63
+
+# YIELD: Excel example = 6.50%
+query R
+SELECT ROUND(yield('2008-02-15', '2016-11-15', 0.0575, 95.04287, 100, 2, 0), 4);
+----
+0.065
+
+# DURATION: Excel example = 5.9938
+query R
+SELECT ROUND(duration('2008-01-01', '2016-01-01', 0.08, 0.09, 2, 1), 4);
+----
+5.9938
+
+# ACCRINT: Excel example = 16.94
+query R
+SELECT ROUND(accrint('2008-03-01', '2008-08-31', '2008-05-01', 0.10, 1000, 2, 0), 2);
+----
+16.94
+
+# ── Miscellaneous ─────────────────────────────────────────────────────────────
+
+# EFFECT: Excel example EFFECT(5.25%, 4) = 5.3543%
+query R
+SELECT ROUND(effect(0.0525, 4), 6);
+----
+0.053543
+
+# NOMINAL: Excel example NOMINAL(5.3543%, 4) = 5.25%
+query R
+SELECT ROUND(nominal(0.053543, 4), 4);
+----
+0.0525
+
+# DOLLARDE: Excel example DOLLARDE(1.02, 16) = 1.125
+query R
+SELECT dollarde(1.02, 16);
+----
+1.125
+
+# DOLLARFR: Excel example DOLLARFR(1.125, 16) = 1.02
+query R
+SELECT dollarfr(1.125, 16);
+----
+1.02
+
+# RRI: Excel example RRI(96, 10000, 11000) = 0.000988
+query R
+SELECT ROUND(rri(96, 10000, 11000), 6);
+----
+0.000988
+
+# PDURATION: Excel example PDURATION(2.5%, 2000, 2200) = 3.8599
+query R
+SELECT ROUND(pduration(0.025, 2000, 2200), 4);
+----
+3.8599
+
+# TBILLPRICE: Excel example = 98.45
+query R
+SELECT ROUND(tbillprice('2008-03-31', '2008-06-01', 0.09), 2);
+----
+98.45
+
+# TBILLYIELD: Excel example = 9.14%
+query R
+SELECT ROUND(tbillyield('2008-03-31', '2008-06-01', 98.45), 4);
+----
+0.0914
+
+# FVSCHEDULE: Excel example FVSCHEDULE(1, 9%,11%,10%) = 1.3309
+query R
+SELECT ROUND(fvschedule(1.0, '0.09,0.11,0.10'), 4);
+----
+1.3309
+
+# ── NULL / robustness guards ──────────────────────────────────────────────────
+
+# IRR on all-positive flows has no solution → NULL
+query I
+SELECT irr('10000,2000,3000') IS NULL;
+----
+true
+
+# NPV with empty string → NULL
+query I
+SELECT npv(0.10, '') IS NULL;
+----
+true
+
+# RATE non-convergence with impossible inputs → NULL
+query I
+SELECT rate(1.0, -1.0, 1000000.0, 0.0, false, 0.1) IS NULL;
+----
+true
