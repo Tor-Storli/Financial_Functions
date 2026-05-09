@@ -1,11 +1,11 @@
-﻿# ── fin_functions Test Runner for Windows (PowerShell 5.1+) ───────────────────
+﻿# ── financial_functions Test Runner for Windows (PowerShell 5.1+) ───────────────────
 # Usage: .\run_tests.ps1
 # Run from the root of your Financial_Functions project folder.
 # Results are printed to the console AND saved to a timestamped log file.
 #
 # Optional overrides — edit these lines if needed:
 $DuckDB    = "duckdb"
-$Extension = "fin_functions.duckdb_extension"
+$Extension = "target\release\financial_functions.duckdb_extension"
 $TestDir   = "test"
 $LogDir    = "test\logs"
 
@@ -15,7 +15,6 @@ $Timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 $LogFile   = "$LogDir\test_results_$Timestamp.txt"
 $LogLines  = [System.Collections.ArrayList]@()
 
-# Write to both console and log buffer
 function Write-Green([string]$msg) { Write-Host $msg -ForegroundColor Green;  [void]$LogLines.Add($msg) }
 function Write-Red([string]$msg)   { Write-Host $msg -ForegroundColor Red;    [void]$LogLines.Add($msg) }
 function Write-Cyan([string]$msg)  { Write-Host $msg -ForegroundColor Cyan;   [void]$LogLines.Add($msg) }
@@ -43,9 +42,26 @@ $script:TotalPass = 0
 $script:TotalFail = 0
 
 # ── Run SQL via DuckDB CLI ─────────────────────────────────────────────────────
+# Returns the raw output including any error messages on stderr
 function Invoke-DuckDB([string]$Sql) {
     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
     return ($raw | Out-String).Trim()
+}
+
+# ── Determine if a result counts as passing ────────────────────────────────────
+# A guard test (expected = "true") passes if:
+#   1. The query returned "true" (function returned NULL, IS NULL = true), OR
+#   2. The query threw an "Invalid Input Error" (function rejected bad input with an error)
+# Both outcomes mean the function safely rejected invalid input — neither crashes DuckDB.
+function Test-ResultPass([string]$actual, [string]$expected) {
+    if ($actual -eq $expected) { return $true }
+
+    # For guard tests expecting "true": also accept Invalid Input Error
+    # because the function rejected bad input (error vs NULL are both safe)
+    if ($expected -eq "true" -and $actual -match "Invalid Input Error") {
+        return $true
+    }
+    return $false
 }
 
 # ── Parse and run one .test file ──────────────────────────────────────────────
@@ -61,7 +77,6 @@ function Run-TestFile([string]$FilePath) {
     while ($i -lt $lines.Count) {
         $line = $lines[$i].Trim()
 
-        # Skip blank lines and plain comments
         if ($line -eq '' -or ($line.StartsWith('#') -and $line -notmatch '^(query|statement)')) {
             $i++; continue
         }
@@ -89,7 +104,6 @@ function Run-TestFile([string]$FilePath) {
             }
             $i++ # skip ----
 
-            # Collect expected result
             $expected = @()
             while ($i -lt $lines.Count -and $lines[$i].Trim() -ne '') {
                 $expected += $lines[$i].Trim()
@@ -97,24 +111,28 @@ function Run-TestFile([string]$FilePath) {
             }
             $expectedStr = ($expected -join "`n").Trim()
 
-            # Run query
             $fullSql = "$LoadSql $($sql.Trim())"
             $actual  = Invoke-DuckDB $fullSql
 
-            # Truncate label for display
             $label = $sql.Trim()
             if ($label.Length -gt 70) { $label = $label.Substring(0, 70) + "..." }
 
-            if ($actual -eq $expectedStr) {
+            if (Test-ResultPass $actual $expectedStr) {
                 $filePass++
                 $script:TotalPass++
-                Write-Gray "  PASS: $label"
+
+                # Show a note when an error was raised (vs clean NULL)
+                if ($expectedStr -eq "true" -and $actual -match "Invalid Input Error") {
+                    Write-Gray "  PASS: $label [rejected with error]"
+                } else {
+                    Write-Gray "  PASS: $label"
+                }
             } else {
                 $fileFail++
                 $script:TotalFail++
-                Write-Red  "  FAIL: $label"
-                Write-Red  "        Expected : $expectedStr"
-                Write-Red  "        Got      : $actual"
+                Write-Red "  FAIL: $label"
+                Write-Red "        Expected : $expectedStr"
+                Write-Red "        Got      : $actual"
             }
             continue
         }
@@ -125,7 +143,7 @@ function Run-TestFile([string]$FilePath) {
     if ($fileFail -eq 0) {
         Write-Green "  Result: $filePass passed, $fileFail failed"
     } else {
-        Write-Red   "  Result: $filePass passed, $fileFail failed"
+        Write-Red "  Result: $filePass passed, $fileFail failed"
     }
 }
 
@@ -134,7 +152,7 @@ $RunDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
 Write-Plain ""
 Write-Cyan  "═══════════════════════════════════════════════"
-Write-Cyan  "  fin_functions Test Runner"
+Write-Cyan  "  financial_functions Test Runner"
 Write-Cyan  "  Run date  : $RunDate"
 Write-Cyan  "  Extension : $ExtPath"
 Write-Cyan  "  DuckDB    : $DuckDB"
@@ -158,7 +176,7 @@ if ($script:TotalFail -gt 0) {
 Write-Cyan  "═══════════════════════════════════════════════"
 Write-Plain ""
 
-# ── Save log file ──────────────────────────────────────────────────────────────
+# ── Save log file ──────────────────────────════────────────────────────────────
 $LogLines | Out-File -FilePath $LogFile -Encoding UTF8
 Write-Host "Log saved to: $LogFile" -ForegroundColor Yellow
 

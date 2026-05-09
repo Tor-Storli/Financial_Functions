@@ -1,0 +1,652 @@
+﻿
+═══════════════════════════════════════════════
+  financial_functions Test Runner
+  Run date  : 2026-05-09 06:50:03
+  Extension : C:/Users/storl/Desktop/Financial_Functions/financial_functions.duckdb_extension
+  DuckDB    : duckdb
+  Log file  : test\logs\test_results_2026-05-09_06-50-03.txt
+═══════════════════════════════════════════════
+
+── C:\Users\storl\Desktop\Financial_Functions\test\annuity.test
+  PASS: SELECT ROUND(fv(0.06/12, 10.0, -200.0, -500.0, true), 2);
+  PASS: SELECT ROUND(fv(0.12/12, 12.0, -1000.0, 0.0, false), 2);
+  PASS: SELECT ROUND(fv(0.0, 10.0, -100.0, -500.0, false), 2);
+  PASS: SELECT ROUND(pv(0.08/12, 240.0, 500.0, 0.0, false), 2);
+  PASS: SELECT ROUND(pmt(0.08/12, 10.0, 10000.0, 0.0, false), 2);
+  PASS: SELECT ROUND(pmt(0.0, 12.0, 1200.0, 0.0, false), 2);
+  PASS: SELECT ROUND(ipmt(0.10/12, 1.0, 3.0, 8000.0, 0.0, false), 2);
+  FAIL: SELECT ipmt(0.10/12, 0.0, 12.0, 10000.0, 0.0, false) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [ipmt] Argument 'per' = 0 is out of the valid range [1, 12]. Hint: 'per' is the payment period number; it 
+must be between 1 and nper.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...een 1 and nper.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT ipmt(0.10/12, 99.0, 12.0, 10000.0, 0.0, false) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [ipmt] Argument 'per' = 99 is out of the valid range [1, 12]. Hint: 'per' is the payment period number; it 
+must be between 1 and nper.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...een 1 and nper.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT ipmt(0.10/12, 1.0, 0.0, 10000.0, 0.0, false) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [ipmt] Argument 'nper' = 0 is out of the valid range (0, âˆž). Hint: nper is the total number of payment 
+periods and must be positive.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...st be positive.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT ROUND(ppmt(0.10/12, 1.0, 24.0, 2000.0, 0.0, false), 2);
+  FAIL: SELECT ppmt(0.10/12, 0.0, 12.0, 10000.0, 0.0, false) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [ppmt] Argument 'per' = 0 is out of the valid range [1, 12]. Hint: 'per' is the payment period number; it 
+must be between 1 and nper.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...een 1 and nper.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT ROUND(cumipmt(0.09/12, 360.0, 125000.0, 1.0, 1.0, false), 2);
+  FAIL: SELECT cumipmt(0.09/12, 360.0, 125000.0, 5.0, 1.0, false) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [cumipmt] 'end_period' (1) must be >= 'start_period' (5).
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...rt_period' (5).:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT cumipmt(0.09/12, 360.0, 125000.0, 0.0, 12.0, false) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [cumipmt] Argument 'start_period' = 0 is out of the valid range [1, âˆž). Hint: 'start_period' is the first 
+payment period in the range (must be >= 1).
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...(must be >= 1).:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT cumipmt(0.09/12, 12.0, 125000.0, 1.0, 999.0, false) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [cumipmt] Argument 'end_period' = 999 is out of the valid range (-âˆž, 12]. Hint: 'end_period' cannot exceed 
+'nper' (total number of periods).
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...er of periods).:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT ROUND(cumprinc(0.09/12, 360.0, 125000.0, 1.0, 1.0, false), 2);
+  FAIL: SELECT cumprinc(0.09/12, 360.0, 125000.0, 10.0, 1.0, false) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [cumprinc] 'end_period' (1) must be >= 'start_period' (10).
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...t_period' (10).:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT ROUND(nper(0.12/12, -100.0, -1000.0, 10000.0, true), 2);
+  PASS: SELECT ROUND(rate(48.0, -200.0, 8000.0, 0.0, false, 0.1) * 12, 4);
+  FAIL: SELECT rate(0.0, -200.0, 8000.0, 0.0, false, 0.1) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [rate] Argument 'nper' = 0 is out of the valid range (0, âˆž). Hint: nper is the total number of payment 
+periods and must be positive.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...st be positive.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT ROUND(ispmt(0.10/12, 1.0, 36.0, 8000000.0), 2);
+  FAIL: SELECT ispmt(0.05, 0.0, 12.0, 10000.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [ispmt] Argument 'per' = 0 is out of the valid range [1, 12]. Hint: 'per' is the payment period number; it 
+must be between 1 and nper.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...een 1 and nper.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT ispmt(0.05, 99.0, 12.0, 10000.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [ispmt] Argument 'per' = 99 is out of the valid range [1, 12]. Hint: 'per' is the payment period number; it 
+must be between 1 and nper.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...een 1 and nper.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  Result: 13 passed, 11 failed
+
+── C:\Users\storl\Desktop\Financial_Functions\test\cash_flows.test
+  PASS: SELECT ROUND(npv(0.10, '-10000,3000,4200,6800'), 2);
+  PASS: SELECT ROUND(npv(0.08, '8000,9200,10000,12000,14500') + (-40000), 2);
+  FAIL: SELECT npv(0.10, '') IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [npv] Argument 'values' is empty. Provide at least one value as a comma-separated string, e.g. 
+'-10000,3000,4200'.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...000,3000,4200'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT npv(0.10, 'abc,def') IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [npv] Argument 'values' must be a comma-separated list of numbers (e.g. '-10000,3000,4200,6800'), but 
+parsing failed: could not parse 'abc' as a number: invalid float literal.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E... float literal.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT ROUND(irr('-70000,12000,15000,18000,21000,26000'), 4);
+  PASS: SELECT ROUND(irr('-70000,12000,15000,18000,21000'), 4);
+  PASS: SELECT ROUND(irr('-70000,12000,15000'), 4);
+  FAIL: SELECT irr('100,200,300') IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [irr] Cash flows must include at least one positive value (inflow) and one negative value (outflow). 
+Example: '-10000,3000,4200,6800'.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...000,4200,6800'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT irr('-100,-200,-300') IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [irr] Cash flows must include at least one positive value (inflow) and one negative value (outflow). 
+Example: '-10000,3000,4200,6800'.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...000,4200,6800'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT irr('') IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [irr] Argument 'values' is empty. Provide at least one value as a comma-separated string, e.g. 
+'-10000,3000,4200'.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...000,3000,4200'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT irr('-1000') IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [irr] Argument 'values' has only 1 element(s) but requires at least 2.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...res at least 2.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT ROUND(mirr('-120000,39000,30000,21000,37000,46000', 0.10, 0.12)...
+  PASS: SELECT ROUND(mirr('-120000,39000,30000,21000', 0.10, 0.12), 4);
+  PASS: SELECT ROUND(mirr('-120000,39000,30000,21000,37000,46000', 0.10, 0.14)...
+  FAIL: SELECT mirr('100,200,300', 0.10, 0.12) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [mirr] Cash flows must include at least one positive value (inflow) and one negative value (outflow). 
+Example: '-10000,3000,4200,6800'.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...000,4200,6800'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT mirr('', 0.10, 0.12) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [mirr] Argument 'values' is empty. Provide at least one value as a comma-separated string, e.g. 
+'-10000,3000,4200'.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...000,3000,4200'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT ROUND(xnpv(0.09, '-10000,2750,4250,3250,2750', '2008-01-01,2008...
+  FAIL: SELECT xnpv(0.09, '-10000,2750', '2008-01-01') IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [xnpv] Arguments 'values' and 'dates' must have the same number of elements, but 'values' has 2 and 'dates' 
+has 1. Each cash flow must have exactly one corresponding date.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...esponding date.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT xnpv(0.09, '-10000,2750', 'not-a-date,2008-03-01') IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [xnpv] Argument 'dates' could not be parsed: Invalid date 'not-a-date': input contains invalid characters. 
+Dates must be YYYY-MM-DD, comma-separated. Example: '2024-01-01,2024-07-01,2025-01-01'.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...01,2025-01-01'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT ROUND(xirr( '-10000,2750,4250,3250,2750', '2008-01-01,2008-03-0...
+  FAIL: SELECT xirr('100,200,300', '2020-01-01,2020-06-01,2021-01-01') IS NULL...
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [xirr] Cash flows must include at least one positive value (inflow) and one negative value (outflow).
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...alue (outflow).:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT xirr('-10000,2750', '2008-01-01') IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [xirr] Arguments 'values' and 'dates' must have the same number of elements, but 'values' has 2 and 'dates' 
+has 1. Each cash flow must have exactly one corresponding date.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...esponding date.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  Result: 10 passed, 12 failed
+
+── C:\Users\storl\Desktop\Financial_Functions\test\other_functions.test
+  PASS: SELECT sln(30000.0, 7500.0, 10.0);
+  FAIL: SELECT sln(30000.0, 7500.0, 0.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [sln] Argument 'life' = 0 is out of the valid range (0, âˆž). Hint: 'life' is the number of periods over 
+which the asset is depreciated.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...is depreciated.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT ROUND(syd(30000.0, 7500.0, 10.0, 1.0), 2);
+  PASS: SELECT ROUND(db(1000000.0, 100000.0, 6.0, 1.0, 7.0), 2);
+  PASS: SELECT ddb(2400.0, 300.0, 10.0, 1.0, 2.0);
+  PASS: SELECT ROUND(vdb(2400.0, 300.0, 10.0*12, 0.0, 1.0, 2.0, 0.0), 2);
+  PASS: SELECT ROUND(vdb(2400.0, 300.0, 10.0, 0.0, 1.0, 2.0, 0.0), 2);
+  PASS: SELECT ROUND(amordegrc(2400.0, 39679.0, 39813.0, 300.0, 1.0, 0.15, 1.0...
+  FAIL: SELECT amordegrc(2400.0, 0.0, 365.0, 300.0, 1.0, 0.0, 1.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [amordegrc] Argument 'rate' = 0 is out of the valid range (0, âˆž). Hint: 'rate' is the annual depreciation 
+rate and must be positive (e.g. 0.25 for 25%).
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E... 0.25 for 25%).:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT ROUND(amorlinc(2400.0, 39679.0, 39813.0, 300.0, 1.0, 0.15, 1.0)...
+  PASS: SELECT coupdaybs('2011-01-25', '2011-11-15', 2.0, 1.0);
+  FAIL: SELECT coupdaybs('2025-01-01', '2020-01-01', 2.0, 1.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [coupdaybs] 'settlement' (2025-01-01) must be earlier than 'maturity' (2020-01-01). Check that settlement 
+and maturity dates are not swapped.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...re not swapped.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT coupdaybs('2020-01-01', '2020-01-01', 2.0, 1.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [coupdaybs] 'settlement' (2020-01-01) must be earlier than 'maturity' (2020-01-01). Check that settlement 
+and maturity dates are not swapped.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...re not swapped.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT coupdaybs('not-a-date', '2020-01-01', 2.0, 1.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [coupdaybs] Argument 'settlement' must be a date in YYYY-MM-DD format, but received "not-a-date". Example: 
+'2024-01-15'.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...: '2024-01-15'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT coupdays('2011-01-25', '2011-11-15', 2.0, 1.0);
+  PASS: SELECT coupdaysnc('2011-01-25', '2011-11-15', 2.0, 1.0);
+  PASS: SELECT coupnum('2007-01-25', '2008-11-15', 2.0, 1.0);
+  PASS: SELECT ROUND(price('2008-02-15', '2017-11-15', 0.0575, 0.065, 100.0, 2...
+  FAIL: SELECT price('2020-01-01', '2010-01-01', 0.05, 0.06, 100.0, 2.0, 0.0) ...
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [price] 'settlement' (2020-01-01) must be earlier than 'maturity' (2010-01-01). Check that settlement and 
+maturity dates are not swapped.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...re not swapped.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT price('bad-date', '2017-11-15', 0.0575, 0.065, 100.0, 2.0, 0.0)...
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [price] Argument 'settlement' must be a date in YYYY-MM-DD format, but received "bad-date". Example: 
+'2024-01-15'.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...: '2024-01-15'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT ROUND(yield('2008-02-15', '2016-11-15', 0.0575, 95.04287, 100.0...
+  PASS: SELECT ROUND(yielddisc('2008-02-16', '2008-03-01', 99.795, 100.0, 2.0)...
+  PASS: SELECT ROUND(pricedisc('2008-02-16', '2008-03-01', 0.0525, 100.0, 2.0)...
+  PASS: SELECT ROUND(intrate('2008-02-15', '2008-05-15', 1000000.0, 1014420.0,...
+  PASS: SELECT ROUND(received('2008-02-15', '2008-05-15', 1000000.0, 0.0575, 2...
+  PASS: SELECT ROUND(duration('2008-01-01', '2016-01-01', 0.08, 0.09, 2.0, 1.0...
+  PASS: SELECT ROUND(mduration('2008-01-01', '2016-01-01', 0.08, 0.09, 2.0, 1....
+  PASS: SELECT ROUND(accrintm('2008-04-01', '2008-06-15', 0.10, 1000.0, 3.0), ...
+  PASS: SELECT ROUND(oddfprice('2008-11-11', '2021-03-01', '2008-10-15', '2009...
+  PASS: SELECT ROUND(oddlprice('2008-02-07', '2008-06-15', '2007-10-15', 0.037...
+  PASS: SELECT ROUND(oddlyield('2008-04-20', '2008-06-15', '2007-12-24', 0.037...
+  PASS: SELECT ROUND(effect(0.0525, 4.0), 6);
+  FAIL: SELECT effect(0.05, 0.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [effect] Argument 'npery' = 0 is out of the valid range [1, âˆž). Hint: 'npery' is the number of compounding 
+periods per year (e.g. 12 for monthly, 4 for quarterly).
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...for quarterly).:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT ROUND(nominal(0.053543, 4.0), 4);
+  PASS: SELECT dollarde(1.02, 16.0);
+  PASS: SELECT dollarfr(1.125, 16.0);
+  PASS: SELECT ROUND(fvschedule(1.0, '0.09,0.11,0.10'), 4);
+  FAIL: SELECT fvschedule(1.0, '') IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [fvschedule] Argument 'schedule' is empty. Provide at least one value as a comma-separated string, e.g. 
+'-10000,3000,4200'.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...000,3000,4200'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT ROUND(rri(96.0, 10000.0, 11000.0), 6);
+  FAIL: SELECT rri(10.0, 0.0, 1000.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [rri] Argument 'pv' must not be zero â€” it appears in the denominator.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...he denominator.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT ROUND(pduration(0.025, 2000.0, 2200.0), 4);
+  PASS: SELECT ROUND(tbillprice('2008-03-31', '2008-06-01', 0.09), 2);
+  PASS: SELECT ROUND(tbillyield('2008-03-31', '2008-06-01', 98.45), 4);
+  PASS: SELECT ROUND(tbilleq('2008-03-31', '2008-06-01', 0.0914), 4);
+  FAIL: SELECT tbilleq('bad-date', '2008-06-01', 0.09) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [tbilleq] Argument 'settlement' must be a date in YYYY-MM-DD format, but received "bad-date". Example: 
+'2024-01-15'.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...: '2024-01-15'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  Result: 34 passed, 11 failed
+
+── C:\Users\storl\Desktop\Financial_Functions\test\robustness.test
+  FAIL: SELECT irr('-1000') IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [irr] Argument 'values' has only 1 element(s) but requires at least 2.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...res at least 2.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT irr('') IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [irr] Argument 'values' is empty. Provide at least one value as a comma-separated string, e.g. 
+'-10000,3000,4200'.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...000,3000,4200'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT mirr('-100,-200,-300', 0.10, 0.12) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [mirr] Cash flows must include at least one positive value (inflow) and one negative value (outflow). 
+Example: '-10000,3000,4200,6800'.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...000,4200,6800'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT npv(0.10, '100,abc,300') IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [npv] Argument 'values' must be a comma-separated list of numbers (e.g. '-10000,3000,4200,6800'), but 
+parsing failed: could not parse 'abc' as a number: invalid float literal.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E... float literal.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT xnpv(0.09, '-1000,500,600', '2020-01-01,2020-06-01') IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [xnpv] Arguments 'values' and 'dates' must have the same number of elements, but 'values' has 3 and 'dates' 
+has 2. Each cash flow must have exactly one corresponding date.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...esponding date.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT xirr('100,200,300', '2020-01-01,2020-06-01,2021-01-01') IS NULL...
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [xirr] Cash flows must include at least one positive value (inflow) and one negative value (outflow).
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...alue (outflow).:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT coupdaybs('2030-01-01', '2020-01-01', 2.0, 0.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [coupdaybs] 'settlement' (2030-01-01) must be earlier than 'maturity' (2020-01-01). Check that settlement 
+and maturity dates are not swapped.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...re not swapped.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT coupdays('2020-01-01', '2020-01-01', 2.0, 0.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [coupdays] 'settlement' (2020-01-01) must be earlier than 'maturity' (2020-01-01). Check that settlement and 
+maturity dates are not swapped.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...re not swapped.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT coupdaysnc('2030-01-01', '2025-01-01', 2.0, 1.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [coupdaysnc] 'settlement' (2030-01-01) must be earlier than 'maturity' (2025-01-01). Check that settlement 
+and maturity dates are not swapped.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...re not swapped.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT coupncd('2030-01-01', '2020-01-01', 2.0, 1.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [coupncd] 'settlement' (2030-01-01) must be earlier than 'maturity' (2020-01-01). Check that settlement and 
+maturity dates are not swapped.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...re not swapped.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT couppcd('2030-01-01', '2020-01-01', 2.0, 1.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [couppcd] 'settlement' (2030-01-01) must be earlier than 'maturity' (2020-01-01). Check that settlement and 
+maturity dates are not swapped.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...re not swapped.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT coupnum('2030-01-01', '2020-01-01', 2.0, 1.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [coupnum] 'settlement' (2030-01-01) must be earlier than 'maturity' (2020-01-01). Check that settlement and 
+maturity dates are not swapped.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...re not swapped.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT price('2030-01-01', '2020-01-01', 0.05, 0.06, 100.0, 2.0, 0.0) ...
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [price] 'settlement' (2030-01-01) must be earlier than 'maturity' (2020-01-01). Check that settlement and 
+maturity dates are not swapped.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...re not swapped.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT yield('2030-01-01', '2020-01-01', 0.05, 95.0, 100.0, 2.0, 0.0) ...
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [yield] 'settlement' (2030-01-01) must be earlier than 'maturity' (2020-01-01). Check that settlement and 
+maturity dates are not swapped.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...re not swapped.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT duration('2030-01-01', '2020-01-01', 0.08, 0.09, 2.0, 1.0) IS N...
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [duration] 'settlement' (2030-01-01) must be earlier than 'maturity' (2020-01-01). Check that settlement and 
+maturity dates are not swapped.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...re not swapped.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT ipmt(0.05, -1.0, 12.0, 10000.0, 0.0, false) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [ipmt] Argument 'per' = -1 is out of the valid range [1, 12]. Hint: 'per' is the payment period number; it 
+must be between 1 and nper.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...een 1 and nper.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT ipmt(0.05, 0.0, 12.0, 10000.0, 0.0, false) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [ipmt] Argument 'per' = 0 is out of the valid range [1, 12]. Hint: 'per' is the payment period number; it 
+must be between 1 and nper.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...een 1 and nper.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT ipmt(0.05, 100.0, 12.0, 10000.0, 0.0, false) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [ipmt] Argument 'per' = 100 is out of the valid range [1, 12]. Hint: 'per' is the payment period number; it 
+must be between 1 and nper.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...een 1 and nper.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT cumipmt(0.05, 12.0, 10000.0, 6.0, 3.0, false) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [cumipmt] 'end_period' (3) must be >= 'start_period' (6).
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...rt_period' (6).:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT cumipmt(0.05, 12.0, 10000.0, 0.0, 6.0, false) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [cumipmt] Argument 'start_period' = 0 is out of the valid range [1, âˆž). Hint: 'start_period' is the first 
+payment period in the range (must be >= 1).
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...(must be >= 1).:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT cumprinc(0.05, 12.0, 10000.0, 1.0, 999.0, false) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [cumprinc] Argument 'end_period' = 999 is out of the valid range (-âˆž, 12]. Hint: 'end_period' cannot 
+exceed 'nper' (total number of periods).
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...er of periods).:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT rate(0.0, -100.0, 1000.0, 0.0, false, 0.1) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [rate] Argument 'nper' = 0 is out of the valid range (0, âˆž). Hint: nper is the total number of payment 
+periods and must be positive.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...st be positive.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT ispmt(0.05, 99.0, 12.0, 10000.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [ispmt] Argument 'per' = 99 is out of the valid range [1, 12]. Hint: 'per' is the payment period number; it 
+must be between 1 and nper.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...een 1 and nper.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT sln(1000.0, 100.0, 0.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [sln] Argument 'life' = 0 is out of the valid range (0, âˆž). Hint: 'life' is the number of periods over 
+which the asset is depreciated.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...is depreciated.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT effect(0.05, 0.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [effect] Argument 'npery' = 0 is out of the valid range [1, âˆž). Hint: 'npery' is the number of compounding 
+periods per year (e.g. 12 for monthly, 4 for quarterly).
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...for quarterly).:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT nominal(0.05, 0.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [nominal] Argument 'npery' = 0 is out of the valid range [1, âˆž). Hint: 'npery' is the number of 
+compounding periods per year (e.g. 12 for monthly, 4 for quarterly).
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...for quarterly).:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT rri(12.0, 0.0, 1000.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [rri] Argument 'pv' must not be zero â€” it appears in the denominator.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...he denominator.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT rri(0.0, 1000.0, 2000.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [rri] Argument 'nper' = 0 is out of the valid range (0, âˆž). Hint: 'nper' is the number of periods and must 
+be positive.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...st be positive.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT amordegrc(2400.0, 0.0, 365.0, 300.0, 1.0, 0.0, 1.0) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [amordegrc] Argument 'rate' = 0 is out of the valid range (0, âˆž). Hint: 'rate' is the annual depreciation 
+rate and must be positive (e.g. 0.25 for 25%).
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E... 0.25 for 25%).:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  FAIL: SELECT tbilleq('2020-01-01', 'not-a-date', 0.09) IS NULL;
+        Expected : true
+        Got      : duckdb.exe : Invalid Input Error: [tbilleq] Argument 'maturity' must be a date in YYYY-MM-DD format, but received "not-a-date". Example: 
+'2024-01-15'.
+At C:\Users\storl\Desktop\Financial_Functions\run_tests.ps1:47 char:12
++     $raw = & $DuckDB -unsigned -noheader -list -c $Sql 2>&1
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid Input E...: '2024-01-15'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+  PASS: SELECT COUNT(*) FROM duckdb_functions() WHERE function_name IN ( 'fv',...
+  Result: 1 passed, 30 failed
+
+═══════════════════════════════════════════════
+  SUMMARY
+  Passed : 58
+  Failed : 64
+═══════════════════════════════════════════════
+

@@ -623,7 +623,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "fin_functions"
+name = "financial"
+version = "1.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21dac53b0df7022ae77998625111c75970e1ce5c4eb712512ad0b3cb30e40f61"
+dependencies = [
+ "chrono",
+]
+
+[[package]]
+name = "financial_functions"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -632,15 +641,6 @@ dependencies = [
  "duckdb-loadable-macros",
  "financial",
  "libduckdb-sys",
-]
-
-[[package]]
-name = "financial"
-version = "1.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21dac53b0df7022ae77998625111c75970e1ce5c4eb712512ad0b3cb30e40f61"
-dependencies = [
- "chrono",
 ]
 
 [[package]]
