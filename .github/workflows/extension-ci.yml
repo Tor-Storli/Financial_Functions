@@ -1,0 +1,35 @@
+# .github/workflows/extension-ci.yml
+#
+# Builds and tests the financial_functions DuckDB extension against:
+#   - the current stable DuckDB release  (duckdb-stable-build)
+#   - the latest DuckDB main branch      (duckdb-next-build)
+#
+# Both jobs are required before the extension can be accepted into the
+# DuckDB Community Extensions repository.
+
+name: Extension CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  # ── Build & test against the latest stable DuckDB release ──────────────────
+  duckdb-stable-build:
+    name: Build extension binaries (stable)
+    uses: duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@v1.3.2
+    with:
+      duckdb_version: v1.3.2
+      ci_tools_version: v1.3.2
+      extension_name: financial_functions
+
+  # ── Build & test against DuckDB main (forward-compatibility check) ─────────
+  duckdb-next-build:
+    name: Build extension binaries (next / main)
+    uses: duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@main
+    with:
+      duckdb_version: main
+      ci_tools_version: main
+      extension_name: financial_functions
