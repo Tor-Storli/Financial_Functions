@@ -4,8 +4,8 @@ on:
     tags:
       - 'v*'
 jobs:
-  build-and-release:
-    name: Build and Release
+  build:
+    name: Build extension binaries
     uses: duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@main
     with:
       duckdb_version: v1.5.2
@@ -13,3 +13,41 @@ jobs:
       extension_name: financial_functions
       extra_toolchains: "rust;python3"
       exclude_archs: "wasm_mvp;wasm_eh;wasm_threads;linux_amd64;linux_arm64;linux_amd64_musl;linux_arm64_musl"
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+          merge-multiple: true
+
+      - name: Display downloaded files
+        run: find artifacts/ -type f | sort
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: financial_functions ${{ github.ref_name }}
+          body: |
+            Excel-compatible financial functions for DuckDB v1.5.2
+
+            Download the file for your platform and unzip it.
+            Then open DuckDB with: duckdb -unsigned
+            Then load with: LOAD '/path/to/financial_functions.duckdb_extension';
+
+            Platform guide
+            - windows_amd64 = Windows 64-bit
+            - osx_amd64 = macOS Intel
+            - osx_arm64 = macOS Apple Silicon M1/M2/M3
+          files: artifacts/**/*.duckdb_extension
+          draft: false
+          prerelease: false
