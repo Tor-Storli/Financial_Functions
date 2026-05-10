@@ -4,25 +4,13 @@ on:
     tags:
       - 'v*'
 jobs:
-  release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Download all artifacts
-        uses: dawidd6/action-download-artifact@v3
-        with:
-          workflow: extension-ci.yml
-          workflow_conclusion: success
-          path: artifacts/
-      - name: Create Release and upload all extension files
-        uses: softprops/action-gh-release@v2
-        with:
-          name: financial_functions ${{ github.ref_name }}
-          body: Excel-compatible financial functions for DuckDB v1.5.2
-          files: artifacts/**/*.duckdb_extension
-          draft: false
-          prerelease: false
+  build-and-release:
+    name: Build and Release
+    uses: duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@main
+    with:
+      duckdb_version: v1.5.2
+      ci_tools_version: main
+      extension_name: financial_functions
+      extra_toolchains: "rust;python3"
+      exclude_archs: "wasm_mvp;wasm_eh;wasm_threads;linux_amd64;linux_arm64;linux_amd64_musl;linux_arm64_musl"
+      deploy_as: ${{ github.ref_name }}
