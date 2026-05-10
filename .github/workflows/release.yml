@@ -1,0 +1,67 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'   # triggers on any tag like v1.5.2, v1.6.0, etc.
+
+jobs:
+  release:
+    name: Create GitHub Release
+    needs: []
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: extension-ci.yml
+          workflow_conclusion: success
+          path: artifacts/
+
+      - name: Display artifacts
+        run: ls -R artifacts/
+
+      - name: Create Release and upload all extension files
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "financial_functions ${{ github.ref_name }}"
+          body: |
+            ## financial_functions ${{ github.ref_name }}
+
+            Excel-compatible financial functions for DuckDB v1.5.2.
+
+            ### Installation (before community registry approval)
+
+            1. Download the file for your platform below
+            2. Unzip it
+            3. Run DuckDB with: `duckdb -unsigned`
+            4. Load the extension:
+```sql
+            LOAD '/path/to/financial_functions.duckdb_extension';
+```
+
+            ### Platform files
+            | File | Platform |
+            |------|----------|
+            | `*-windows_amd64*` | Windows 64-bit |
+            | `*-osx_amd64*` | macOS Intel |
+            | `*-osx_arm64*` | macOS Apple Silicon (M1/M2/M3) |
+
+            ### Quick test
+```sql
+            SELECT ROUND(pmt(0.0325/12, 180, 350000, 0, false), 2) AS monthly_payment;
+            SELECT ROUND(npv(0.10, '-10000,3000,4200,6800'), 2) AS npv;
+            SELECT ROUND(irr('-70000,12000,15000,18000,21000,26000'), 4) AS irr;
+```
+
+            > **Note:** The `-unsigned` flag is required until this extension is 
+            > approved in the official DuckDB community registry.
+          files: artifacts/**/*.duckdb_extension
+          draft: false
+          prerelease: false
