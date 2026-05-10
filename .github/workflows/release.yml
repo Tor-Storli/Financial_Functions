@@ -13,4 +13,3 @@ jobs:
       extension_name: financial_functions
       extra_toolchains: "rust;python3"
       exclude_archs: "wasm_mvp;wasm_eh;wasm_threads;linux_amd64;linux_arm64;linux_amd64_musl;linux_arm64_musl"
-      deploy_as: ${{ github.ref_name }}
