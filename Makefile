@@ -4,7 +4,7 @@ PROJ_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 EXTENSION_NAME=financial_functions
 USE_UNSTABLE_C_API=1
-TARGET_DUCKDB_VERSION=v1.3.2
+TARGET_DUCKDB_VERSION=v1.5.2
 SKIP_TESTS=1
 
 all: configure debug
