@@ -1,55 +1,28 @@
 name: Create Release
-
 on:
   push:
     tags:
       - 'v*'
-
 jobs:
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Download all artifacts
         uses: dawidd6/action-download-artifact@v3
         with:
           workflow: extension-ci.yml
           workflow_conclusion: success
           path: artifacts/
-
       - name: Create Release and upload all extension files
         uses: softprops/action-gh-release@v2
         with:
-          name: "financial_functions ${{ github.ref_name }}"
-          body: |
-            ## financial_functions ${{ github.ref_name }}
-
-            Excel-compatible financial functions for DuckDB v1.5.2.
-
-            ### Download your platform file below, then:
-
-            1. Unzip the downloaded file
-            2. Open DuckDB with: duckdb -unsigned
-            3. Load with: LOAD '/path/to/financial_functions.duckdb_extension';
-
-            ### Platform guide
-            - windows_amd64 = Windows 64-bit
-            - osx_amd64 = macOS Intel
-            - osx_arm64 = macOS Apple Silicon M1/M2/M3
-
-            ### Quick test
-            SELECT ROUND(pmt(0.0325/12, 180, 350000, 0, false), 2) AS monthly_payment;
-            SELECT ROUND(npv(0.10, '-10000,3000,4200,6800'), 2) AS npv;
-            SELECT ROUND(irr('-70000,12000,15000,18000,21000,26000'), 4) AS irr;
-
-            Note: The -unsigned flag is required until this extension is
-            approved in the official DuckDB community registry.
+          name: financial_functions ${{ github.ref_name }}
+          body: Excel-compatible financial functions for DuckDB v1.5.2
           files: artifacts/**/*.duckdb_extension
           draft: false
           prerelease: false
