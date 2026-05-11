@@ -22,9 +22,9 @@ execute:
 
 ## Documentation
 
-📄 [View Creating Extension Documentation](https://tor-storli.github.io/Financial_Functions/duckdb_financial_extension.html)      
+[View Creating Extension Documentation](https://tor-storli.github.io/Financial_Functions/duckdb_financial_extension.html)      
 
-   [View Publish Extension Documentation](https://tor-storli.github.io/Financial_Functions/publishing_duckdb_extension.html)
+[View Publish Extension Documentation](https://tor-storli.github.io/Financial_Functions/publishing_duckdb_extension.html)
 
 # Overview
 
