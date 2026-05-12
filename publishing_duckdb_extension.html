@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.26">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Tor Storli and   Claude Sonnet 4.6 (Anthropic’s AI assistant)">
+<meta name="dcterms.date" content="2026-05-11">
+
+<title>Publishing a DuckDB Extension Written in Rust</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="publishing_duckdb_extension_files/libs/clipboard/clipboard.min.js"></script>
+<script src="publishing_duckdb_extension_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="publishing_duckdb_extension_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="publishing_duckdb_extension_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="publishing_duckdb_extension_files/libs/quarto-html/popper.min.js"></script>
+<script src="publishing_duckdb_extension_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="publishing_duckdb_extension_files/libs/quarto-html/anchor.min.js"></script>
+<link href="publishing_duckdb_extension_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="publishing_duckdb_extension_files/libs/quarto-html/quarto-syntax-highlighting-597958c53c93a607afca12fd375c57ed.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="publishing_duckdb_extension_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="publishing_duckdb_extension_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="publishing_duckdb_extension_files/libs/bootstrap/bootstrap-e973efa9006a3106c1cc9d4751b5f2e3.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<style>html{ scroll-behavior: smooth; }</style>
+
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Contents</h2>
+   
+  <ul>
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview"><span class="header-section-number">1</span> Overview</a></li>
+  <li><a href="#prerequisites" id="toc-prerequisites" class="nav-link" data-scroll-target="#prerequisites"><span class="header-section-number">2</span> Prerequisites</a></li>
+  <li><a href="#the-extension-repository-structure" id="toc-the-extension-repository-structure" class="nav-link" data-scroll-target="#the-extension-repository-structure"><span class="header-section-number">3</span> The Extension Repository Structure</a></li>
+  <li><a href="#building-the-extension-locally-on-windows" id="toc-building-the-extension-locally-on-windows" class="nav-link" data-scroll-target="#building-the-extension-locally-on-windows"><span class="header-section-number">4</span> Building the Extension Locally on Windows</a>
+  <ul class="collapse">
+  <li><a href="#build-the-extension" id="toc-build-the-extension" class="nav-link" data-scroll-target="#build-the-extension"><span class="header-section-number">4.1</span> Build the extension</a></li>
+  <li><a href="#test-the-local-build" id="toc-test-the-local-build" class="nav-link" data-scroll-target="#test-the-local-build"><span class="header-section-number">4.2</span> Test the local build</a></li>
+  </ul></li>
+  <li><a href="#setting-up-the-github-repository" id="toc-setting-up-the-github-repository" class="nav-link" data-scroll-target="#setting-up-the-github-repository"><span class="header-section-number">5</span> Setting Up the GitHub Repository</a>
+  <ul class="collapse">
+  <li><a href="#make-the-repository-public" id="toc-make-the-repository-public" class="nav-link" data-scroll-target="#make-the-repository-public"><span class="header-section-number">5.1</span> Make the repository public</a></li>
+  <li><a href="#configure-actions-permissions" id="toc-configure-actions-permissions" class="nav-link" data-scroll-target="#configure-actions-permissions"><span class="header-section-number">5.2</span> Configure Actions permissions</a></li>
+  </ul></li>
+  <li><a href="#adding-the-git-submodules" id="toc-adding-the-git-submodules" class="nav-link" data-scroll-target="#adding-the-git-submodules"><span class="header-section-number">6</span> Adding the Git Submodules</a>
+  <ul class="collapse">
+  <li><a href="#add-the-submodules" id="toc-add-the-submodules" class="nav-link" data-scroll-target="#add-the-submodules"><span class="header-section-number">6.1</span> Add the submodules</a></li>
+  <li><a href="#commit-the-submodules" id="toc-commit-the-submodules" class="nav-link" data-scroll-target="#commit-the-submodules"><span class="header-section-number">6.2</span> Commit the submodules</a></li>
+  </ul></li>
+  <li><a href="#the-makefile" id="toc-the-makefile" class="nav-link" data-scroll-target="#the-makefile"><span class="header-section-number">7</span> The Makefile</a></li>
+  <li><a href="#the-ci-workflow-extension-ci.yml" id="toc-the-ci-workflow-extension-ci.yml" class="nav-link" data-scroll-target="#the-ci-workflow-extension-ci.yml"><span class="header-section-number">8</span> The CI Workflow (<code>extension-ci.yml</code>)</a></li>
+  <li><a href="#the-release-workflow-release.yml" id="toc-the-release-workflow-release.yml" class="nav-link" data-scroll-target="#the-release-workflow-release.yml"><span class="header-section-number">9</span> The Release Workflow (<code>release.yml</code>)</a></li>
+  <li><a href="#verifying-the-ci-builds" id="toc-verifying-the-ci-builds" class="nav-link" data-scroll-target="#verifying-the-ci-builds"><span class="header-section-number">10</span> Verifying the CI Builds</a></li>
+  <li><a href="#creating-a-github-release" id="toc-creating-a-github-release" class="nav-link" data-scroll-target="#creating-a-github-release"><span class="header-section-number">11</span> Creating a GitHub Release</a>
+  <ul class="collapse">
+  <li><a href="#tag-and-release" id="toc-tag-and-release" class="nav-link" data-scroll-target="#tag-and-release"><span class="header-section-number">11.1</span> Tag and release</a></li>
+  <li><a href="#creating-subsequent-releases" id="toc-creating-subsequent-releases" class="nav-link" data-scroll-target="#creating-subsequent-releases"><span class="header-section-number">11.2</span> Creating subsequent releases</a></li>
+  </ul></li>
+  <li><a href="#how-users-install-the-extension" id="toc-how-users-install-the-extension" class="nav-link" data-scroll-target="#how-users-install-the-extension"><span class="header-section-number">12</span> How Users Install the Extension</a>
+  <ul class="collapse">
+  <li><a href="#before-community-registry-approval-current-state" id="toc-before-community-registry-approval-current-state" class="nav-link" data-scroll-target="#before-community-registry-approval-current-state"><span class="header-section-number">12.1</span> Before community registry approval (current state)</a></li>
+  <li><a href="#after-community-registry-approval-future-state" id="toc-after-community-registry-approval-future-state" class="nav-link" data-scroll-target="#after-community-registry-approval-future-state"><span class="header-section-number">12.2</span> After community registry approval (future state)</a></li>
+  </ul></li>
+  <li><a href="#submitting-to-the-duckdb-community-registry" id="toc-submitting-to-the-duckdb-community-registry" class="nav-link" data-scroll-target="#submitting-to-the-duckdb-community-registry"><span class="header-section-number">13</span> Submitting to the DuckDB Community Registry</a>
+  <ul class="collapse">
+  <li><a href="#step-1-get-the-exact-commit-sha" id="toc-step-1-get-the-exact-commit-sha" class="nav-link" data-scroll-target="#step-1-get-the-exact-commit-sha"><span class="header-section-number">13.1</span> Step 1 — Get the exact commit SHA</a></li>
+  <li><a href="#step-2-fork-the-community-extensions-repository" id="toc-step-2-fork-the-community-extensions-repository" class="nav-link" data-scroll-target="#step-2-fork-the-community-extensions-repository"><span class="header-section-number">13.2</span> Step 2 — Fork the community-extensions repository</a></li>
+  <li><a href="#step-3-create-the-description.yml-file" id="toc-step-3-create-the-description.yml-file" class="nav-link" data-scroll-target="#step-3-create-the-description.yml-file"><span class="header-section-number">13.3</span> Step 3 — Create the <code>description.yml</code> file</a></li>
+  <li><a href="#step-4-open-the-pull-request" id="toc-step-4-open-the-pull-request" class="nav-link" data-scroll-target="#step-4-open-the-pull-request"><span class="header-section-number">13.4</span> Step 4 — Open the pull request</a></li>
+  </ul></li>
+  <li><a href="#cargo.toml-version-reference" id="toc-cargo.toml-version-reference" class="nav-link" data-scroll-target="#cargo.toml-version-reference"><span class="header-section-number">14</span> <code>Cargo.toml</code> Version Reference</a></li>
+  <li><a href="#summary-of-all-files-to-create-or-modify" id="toc-summary-of-all-files-to-create-or-modify" class="nav-link" data-scroll-target="#summary-of-all-files-to-create-or-modify"><span class="header-section-number">15</span> Summary of All Files to Create or Modify</a></li>
+  <li><a href="#summary-of-all-commands" id="toc-summary-of-all-commands" class="nav-link" data-scroll-target="#summary-of-all-commands"><span class="header-section-number">16</span> Summary of All Commands</a></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="publishing_duckdb_extension.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Publishing a DuckDB Extension Written in Rust</h1>
+<p class="subtitle lead">From Local Windows Build to Cross-Platform GitHub Release</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Tor Storli and <br> Claude Sonnet 4.6 (Anthropic’s AI assistant) </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">May 11, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="overview" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="overview"><span class="header-section-number">1</span> Overview</h2>
+<p>This document describes every step needed to take a DuckDB extension written in Rust — originally built and tested on Windows — and publish it so that users on Windows, macOS Intel, and macOS Apple Silicon can download and load it. It also covers the preparation required to submit the extension to the official DuckDB Community Extensions registry.</p>
+<p>The extension used as the example throughout is <strong>financial_functions</strong>, which exposes all 55 Excel-compatible financial functions in DuckDB SQL. The source repository is at:</p>
+<blockquote class="blockquote">
+<p><a href="https://github.com/Tor-Storli/Financial_Functions" class="uri">https://github.com/Tor-Storli/Financial_Functions</a></p>
+</blockquote>
+<hr>
+</section>
+<section id="prerequisites" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="prerequisites"><span class="header-section-number">2</span> Prerequisites</h2>
+<p>Before starting, ensure the following are installed on your Windows machine:</p>
+<ul>
+<li><strong>Rust toolchain</strong> — install from <a href="https://rustup.rs" class="uri">https://rustup.rs</a></li>
+<li><strong>Git</strong> — install from <a href="https://git-scm.com" class="uri">https://git-scm.com</a></li>
+<li><strong>DuckDB CLI v1.5.2</strong> — download from <a href="https://github.com/duckdb/duckdb/releases/tag/v1.5.2" class="uri">https://github.com/duckdb/duckdb/releases/tag/v1.5.2</a></li>
+<li><strong>VS Code</strong> (recommended editor)</li>
+<li>A <strong>GitHub account</strong></li>
+</ul>
+<p>Verify your Rust installation:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rustc</span> <span class="at">--version</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> <span class="at">--version</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+</section>
+<section id="the-extension-repository-structure" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="the-extension-repository-structure"><span class="header-section-number">3</span> The Extension Repository Structure</h2>
+<p>After completing all steps, your repository will contain these key files:</p>
+<pre><code>Financial_Functions/
+├── .github/
+│   └── workflows/
+│       ├── extension-ci.yml      # CI: builds on every push to master
+│       └── release.yml           # Release: triggered by version tags
+├── src/                          # Rust source files
+│   ├── lib.rs
+│   ├── annuity.rs
+│   ├── bonds.rs
+│   ├── cash_flows.rs
+│   ├── coupons.rs
+│   ├── depreciation.rs
+│   ├── errors.rs
+│   ├── helpers.rs
+│   └── misc.rs
+├── test/
+│   └── sql/
+│       └── financial_functions.test
+├── duckdb/                       # Git submodule
+├── extension-ci-tools/           # Git submodule
+├── .gitmodules
+├── Cargo.toml
+├── Makefile
+└── README.md</code></pre>
+<hr>
+</section>
+<section id="building-the-extension-locally-on-windows" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="building-the-extension-locally-on-windows"><span class="header-section-number">4</span> Building the Extension Locally on Windows</h2>
+<p>Before setting up CI, verify the extension builds and works locally.</p>
+<section id="build-the-extension" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="build-the-extension"><span class="header-section-number">4.1</span> Build the extension</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Clean any previous build artifacts</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> clean</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Build in release mode</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> build <span class="at">--release</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Package as a DuckDB extension file targeting v1.5.2</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> duckdb-ext build <span class="at">--duckdb-version</span> v1.5.2 <span class="at">--</span> <span class="at">--release</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="test-the-local-build" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="test-the-local-build"><span class="header-section-number">4.2</span> Test the local build</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">duckdb</span> <span class="at">-unsigned</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Inside DuckDB:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>LOAD <span class="st">'target/release/financial_functions.duckdb_extension'</span>;</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Test a few functions</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(pmt(<span class="fl">0.0325</span><span class="op">/</span><span class="dv">12</span>, <span class="dv">180</span>, <span class="dv">350000</span>, <span class="dv">0</span>, <span class="kw">false</span>), <span class="dv">2</span>) <span class="kw">AS</span> monthly_payment;</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(npv(<span class="fl">0.10</span>, <span class="st">'-10000,3000,4200,6800'</span>), <span class="dv">2</span>)    <span class="kw">AS</span> npv;</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(irr(<span class="st">'-70000,12000,15000,18000,21000,26000'</span>), <span class="dv">4</span>) <span class="kw">AS</span> irr;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The <code>-unsigned</code> flag is required for extensions that are not signed by the official DuckDB community key.</p>
+<hr>
+</section>
+</section>
+<section id="setting-up-the-github-repository" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="setting-up-the-github-repository"><span class="header-section-number">5</span> Setting Up the GitHub Repository</h2>
+<section id="make-the-repository-public" class="level3" data-number="5.1">
+<h3 data-number="5.1" class="anchored" data-anchor-id="make-the-repository-public"><span class="header-section-number">5.1</span> Make the repository public</h3>
+<p>In your GitHub repository settings, ensure the repository visibility is set to <strong>Public</strong>. The DuckDB community extension system requires a public repo.</p>
+</section>
+<section id="configure-actions-permissions" class="level3" data-number="5.2">
+<h3 data-number="5.2" class="anchored" data-anchor-id="configure-actions-permissions"><span class="header-section-number">5.2</span> Configure Actions permissions</h3>
+<p>Go to <strong>Settings → Actions → General</strong> in your repository and set:</p>
+<ul>
+<li><strong>Actions permissions</strong> → <em>Allow all actions and reusable workflows</em></li>
+<li><strong>Workflow permissions</strong> → <em>Read and write permissions</em></li>
+</ul>
+<p>Click <strong>Save</strong> after each change. These settings are required for the release workflow to create GitHub Releases and for the CI workflow to use DuckDB’s reusable workflows from <code>duckdb/extension-ci-tools</code>.</p>
+<hr>
+</section>
+</section>
+<section id="adding-the-git-submodules" class="level2" data-number="6">
+<h2 data-number="6" class="anchored" data-anchor-id="adding-the-git-submodules"><span class="header-section-number">6</span> Adding the Git Submodules</h2>
+<p>DuckDB’s CI toolchain is delivered as a Git submodule. Two submodules are required.</p>
+<section id="add-the-submodules" class="level3" data-number="6.1">
+<h3 data-number="6.1" class="anchored" data-anchor-id="add-the-submodules"><span class="header-section-number">6.1</span> Add the submodules</h3>
+<p>Run these commands from the root of your repository:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Add the DuckDB CI tools submodule</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> submodule add <span class="at">--depth</span> 1 <span class="dt">\</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    https://github.com/duckdb/extension-ci-tools.git <span class="dt">\</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    extension-ci-tools</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Add the DuckDB source submodule</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> submodule add <span class="dt">\</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    https://github.com/duckdb/duckdb.git <span class="dt">\</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    duckdb</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Pin the DuckDB submodule to v1.5.2</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> duckdb <span class="kw">&amp;&amp;</span> <span class="fu">git</span> checkout v1.5.2 <span class="kw">&amp;&amp;</span> <span class="bu">cd</span> ..</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Initialise all submodules</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> submodule update <span class="at">--init</span> <span class="at">--recursive</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="commit-the-submodules" class="level3" data-number="6.2">
+<h3 data-number="6.2" class="anchored" data-anchor-id="commit-the-submodules"><span class="header-section-number">6.2</span> Commit the submodules</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> add .gitmodules extension-ci-tools duckdb</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">"Add extension-ci-tools and duckdb submodules"</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push origin master</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The resulting <code>.gitmodules</code> file looks like this:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode ini code-with-copy"><code class="sourceCode ini"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">[submodule "extension-ci-tools"]</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="dt">    path </span><span class="ot">=</span><span class="st"> extension-ci-tools</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="dt">    url </span><span class="ot">=</span><span class="st"> https://github.com/duckdb/extension-ci-tools.git</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="kw">[submodule "duckdb"]</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="dt">    path </span><span class="ot">=</span><span class="st"> duckdb</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="dt">    url </span><span class="ot">=</span><span class="st"> https://github.com/duckdb/duckdb.git</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+</section>
+</section>
+<section id="the-makefile" class="level2" data-number="7">
+<h2 data-number="7" class="anchored" data-anchor-id="the-makefile"><span class="header-section-number">7</span> The Makefile</h2>
+<p>Rust-based DuckDB extensions use a different build path from C++ extensions. Instead of CMake, the build is driven by two Makefiles provided inside <code>extension-ci-tools</code>. Create a <code>Makefile</code> in the repository root:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode makefile code-with-copy"><code class="sourceCode makefile"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ot">.PHONY:</span><span class="dt"> clean clean_all</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="dt">PROJ_DIR</span> <span class="ch">:=</span><span class="st"> </span><span class="ch">$(</span><span class="kw">dir</span><span class="st"> </span><span class="ch">$(</span><span class="kw">abspath</span><span class="st"> </span><span class="ch">$(</span><span class="kw">lastword</span><span class="st"> </span><span class="ch">$(</span><span class="dt">MAKEFILE_LIST</span><span class="ch">))))</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="dt">EXTENSION_NAME</span><span class="ch">=</span><span class="st">financial_functions</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="dt">USE_UNSTABLE_C_API</span><span class="ch">=</span><span class="st">1</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="dt">TARGET_DUCKDB_VERSION</span><span class="ch">=</span><span class="st">v1.5.2</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="dt">SKIP_TESTS</span><span class="ch">=</span><span class="st">1</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a><span class="dv">all:</span><span class="dt"> configure debug</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a><span class="kw">include</span> extension-ci-tools/makefiles/c_api_extensions/base.Makefile</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="kw">include</span> extension-ci-tools/makefiles/c_api_extensions/rust.Makefile</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a><span class="dv">configure:</span><span class="dt"> venv platform extension_version</span></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a><span class="dv">debug:</span><span class="dt"> build_extension_library_debug build_extension_with_metadata_debug</span></span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a><span class="dv">release:</span><span class="dt"> build_extension_library_release build_extension_with_metadata_release</span></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a><span class="dv">test:</span><span class="dt"> test_debug</span></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a><span class="dv">test_debug:</span><span class="dt"> test_extension_debug</span></span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a><span class="dv">test_release:</span><span class="dt"> test_extension_release</span></span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a><span class="dv">clean:</span><span class="dt"> clean_build clean_rust</span></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a><span class="dv">clean_all:</span><span class="dt"> clean_configure clean</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Key variables explained:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Variable</th>
+<th>Value</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>EXTENSION_NAME</code></td>
+<td><code>financial_functions</code></td>
+<td>Must match the Rust crate name in <code>Cargo.toml</code></td>
+</tr>
+<tr class="even">
+<td><code>USE_UNSTABLE_C_API</code></td>
+<td><code>1</code></td>
+<td>Required for Rust extensions using DuckDB’s C API</td>
+</tr>
+<tr class="odd">
+<td><code>TARGET_DUCKDB_VERSION</code></td>
+<td><code>v1.5.2</code></td>
+<td>The DuckDB version to build against</td>
+</tr>
+<tr class="even">
+<td><code>SKIP_TESTS</code></td>
+<td><code>1</code></td>
+<td>Skips the Python-based test runner (version mismatch workaround)</td>
+</tr>
+</tbody>
+</table>
+<p>Create the file using the terminal to avoid Windows line ending issues:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> <span class="op">&gt;</span> Makefile <span class="op">&lt;&lt; 'EOF'</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="st">.PHONY: clean clean_all</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="st">PROJ_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="st">EXTENSION_NAME=financial_functions</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="st">USE_UNSTABLE_C_API=1</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="st">TARGET_DUCKDB_VERSION=v1.5.2</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="st">SKIP_TESTS=1</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="st">all: configure debug</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="st">include extension-ci-tools/makefiles/c_api_extensions/base.Makefile</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="st">include extension-ci-tools/makefiles/c_api_extensions/rust.Makefile</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a><span class="st">configure: venv platform extension_version</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a><span class="st">debug: build_extension_library_debug build_extension_with_metadata_debug</span></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a><span class="st">release: build_extension_library_release build_extension_with_metadata_release</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a><span class="st">test: test_debug</span></span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a><span class="st">test_debug: test_extension_debug</span></span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a><span class="st">test_release: test_extension_release</span></span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a><span class="st">clean: clean_build clean_rust</span></span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a><span class="st">clean_all: clean_configure clean</span></span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a><span class="op">EOF</span></span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> add Makefile</span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">"Add Makefile for Rust CI toolchain"</span></span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push origin master</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+</section>
+<section id="the-ci-workflow-extension-ci.yml" class="level2" data-number="8">
+<h2 data-number="8" class="anchored" data-anchor-id="the-ci-workflow-extension-ci.yml"><span class="header-section-number">8</span> The CI Workflow (<code>extension-ci.yml</code>)</h2>
+<p>This workflow runs automatically on every push to <code>master</code> and on every pull request. It builds the extension for Windows and macOS (Linux and WASM are excluded due to toolchain constraints — see note below).</p>
+<p>Create <code>.github/workflows/extension-ci.yml</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">name</span><span class="kw">:</span><span class="at"> Extension CI</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="fu">on</span><span class="kw">:</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">push</span><span class="kw">:</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">branches</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">master</span><span class="kw">,</span><span class="at"> main</span><span class="kw">]</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">pull_request</span><span class="kw">:</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">branches</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">master</span><span class="kw">,</span><span class="at"> main</span><span class="kw">]</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="fu">jobs</span><span class="kw">:</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">duckdb-stable-build</span><span class="kw">:</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Build extension binaries (stable)</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">uses</span><span class="kw">:</span><span class="at"> duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@main</span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">with</span><span class="kw">:</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">duckdb_version</span><span class="kw">:</span><span class="at"> v1.5.2</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">ci_tools_version</span><span class="kw">:</span><span class="at"> main</span></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">extension_name</span><span class="kw">:</span><span class="at"> financial_functions</span></span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">extra_toolchains</span><span class="kw">:</span><span class="at"> </span><span class="st">"rust;python3"</span></span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">exclude_archs</span><span class="kw">:</span><span class="at"> </span><span class="st">"wasm_mvp;wasm_eh;wasm_threads;linux_amd64;linux_arm64;\</span></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a><span class="st">linux_amd64_musl;linux_arm64_musl"</span></span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">duckdb-next-build</span><span class="kw">:</span></span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Build extension binaries (next)</span></span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">uses</span><span class="kw">:</span><span class="at"> duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@main</span></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">with</span><span class="kw">:</span></span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">duckdb_version</span><span class="kw">:</span><span class="at"> main</span></span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">ci_tools_version</span><span class="kw">:</span><span class="at"> main</span></span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">extension_name</span><span class="kw">:</span><span class="at"> financial_functions</span></span>
+<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">extra_toolchains</span><span class="kw">:</span><span class="at"> </span><span class="st">"rust;python3"</span></span>
+<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">exclude_archs</span><span class="kw">:</span><span class="at"> </span><span class="st">"wasm_mvp;wasm_eh;wasm_threads;linux_amd64;linux_arm64;\</span></span>
+<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a><span class="st">linux_amd64_musl;linux_arm64_musl"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Commit and push:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> add .github/workflows/extension-ci.yml</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">"Add GitHub Actions CI workflow for extension builds"</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push origin master</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Why are Linux and WASM excluded?
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The Linux CI build uses an Alpine-based Docker image that had a bug in the <code>apk update</code> command at the time of writing. The community registry has its own Docker infrastructure that is not affected by this bug, so Linux users will still receive the extension after submission. WASM is excluded because the Rust WASM build requires a Cargo <code>[[example]]</code> target that is not part of this extension. Both exclusions can be removed in a future release once the upstream toolchain issues are resolved.</p>
+</div>
+</div>
+<hr>
+</section>
+<section id="the-release-workflow-release.yml" class="level2" data-number="9">
+<h2 data-number="9" class="anchored" data-anchor-id="the-release-workflow-release.yml"><span class="header-section-number">9</span> The Release Workflow (<code>release.yml</code>)</h2>
+<p>This workflow is triggered whenever you push a version tag (e.g.&nbsp;<code>v1.5.2</code>). It builds the extension binaries, renames each one to include the platform name, and publishes them as a GitHub Release that users can download directly.</p>
+<p>Create <code>.github/workflows/release.yml</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">name</span><span class="kw">:</span><span class="at"> Create Release</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">on</span><span class="kw">:</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">push</span><span class="kw">:</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">tags</span><span class="kw">:</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="st">'v*'</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="fu">jobs</span><span class="kw">:</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">build</span><span class="kw">:</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Build extension binaries</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">uses</span><span class="kw">:</span><span class="at"> duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@main</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">with</span><span class="kw">:</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">duckdb_version</span><span class="kw">:</span><span class="at"> v1.5.2</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">ci_tools_version</span><span class="kw">:</span><span class="at"> main</span></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">extension_name</span><span class="kw">:</span><span class="at"> financial_functions</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">extra_toolchains</span><span class="kw">:</span><span class="at"> </span><span class="st">"rust;python3"</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">exclude_archs</span><span class="kw">:</span><span class="at"> </span><span class="st">"wasm_mvp;wasm_eh;wasm_threads;linux_amd64;linux_arm64;\</span></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a><span class="st">linux_amd64_musl;linux_arm64_musl"</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">release</span><span class="kw">:</span></span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Create GitHub Release</span></span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">needs</span><span class="kw">:</span><span class="at"> build</span></span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">runs-on</span><span class="kw">:</span><span class="at"> ubuntu-latest</span></span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">permissions</span><span class="kw">:</span></span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">contents</span><span class="kw">:</span><span class="at"> write</span></span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">steps</span><span class="kw">:</span></span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Checkout</span></span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">uses</span><span class="kw">:</span><span class="at"> actions/checkout@v4</span></span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Download windows artifact</span></span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">uses</span><span class="kw">:</span><span class="at"> actions/download-artifact@v4</span></span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">with</span><span class="kw">:</span></span>
+<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a><span class="at">          </span><span class="fu">name</span><span class="kw">:</span><span class="at"> financial_functions-v1.5.2-extension-windows_amd64</span></span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a><span class="at">          </span><span class="fu">path</span><span class="kw">:</span><span class="at"> artifacts/windows_amd64/</span></span>
+<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Download macOS Intel artifact</span></span>
+<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">uses</span><span class="kw">:</span><span class="at"> actions/download-artifact@v4</span></span>
+<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">with</span><span class="kw">:</span></span>
+<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a><span class="at">          </span><span class="fu">name</span><span class="kw">:</span><span class="at"> financial_functions-v1.5.2-extension-osx_amd64</span></span>
+<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a><span class="at">          </span><span class="fu">path</span><span class="kw">:</span><span class="at"> artifacts/osx_amd64/</span></span>
+<span id="cb13-39"><a href="#cb13-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-40"><a href="#cb13-40" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Download macOS ARM artifact</span></span>
+<span id="cb13-41"><a href="#cb13-41" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">uses</span><span class="kw">:</span><span class="at"> actions/download-artifact@v4</span></span>
+<span id="cb13-42"><a href="#cb13-42" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">with</span><span class="kw">:</span></span>
+<span id="cb13-43"><a href="#cb13-43" aria-hidden="true" tabindex="-1"></a><span class="at">          </span><span class="fu">name</span><span class="kw">:</span><span class="at"> financial_functions-v1.5.2-extension-osx_arm64</span></span>
+<span id="cb13-44"><a href="#cb13-44" aria-hidden="true" tabindex="-1"></a><span class="at">          </span><span class="fu">path</span><span class="kw">:</span><span class="at"> artifacts/osx_arm64/</span></span>
+<span id="cb13-45"><a href="#cb13-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-46"><a href="#cb13-46" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Rename files clearly</span></span>
+<span id="cb13-47"><a href="#cb13-47" aria-hidden="true" tabindex="-1"></a><span class="fu">        run</span><span class="kw">: </span><span class="ch">|</span></span>
+<span id="cb13-48"><a href="#cb13-48" aria-hidden="true" tabindex="-1"></a>          cp artifacts/windows_amd64/financial_functions.duckdb_extension \</span>
+<span id="cb13-49"><a href="#cb13-49" aria-hidden="true" tabindex="-1"></a>             artifacts/financial_functions-windows_amd64.duckdb_extension</span>
+<span id="cb13-50"><a href="#cb13-50" aria-hidden="true" tabindex="-1"></a>          cp artifacts/osx_amd64/financial_functions.duckdb_extension \</span>
+<span id="cb13-51"><a href="#cb13-51" aria-hidden="true" tabindex="-1"></a>             artifacts/financial_functions-osx_amd64.duckdb_extension</span>
+<span id="cb13-52"><a href="#cb13-52" aria-hidden="true" tabindex="-1"></a>          cp artifacts/osx_arm64/financial_functions.duckdb_extension \</span>
+<span id="cb13-53"><a href="#cb13-53" aria-hidden="true" tabindex="-1"></a>             artifacts/financial_functions-osx_arm64.duckdb_extension</span>
+<span id="cb13-54"><a href="#cb13-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-55"><a href="#cb13-55" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Create Release</span></span>
+<span id="cb13-56"><a href="#cb13-56" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">uses</span><span class="kw">:</span><span class="at"> softprops/action-gh-release@v2</span></span>
+<span id="cb13-57"><a href="#cb13-57" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">with</span><span class="kw">:</span></span>
+<span id="cb13-58"><a href="#cb13-58" aria-hidden="true" tabindex="-1"></a><span class="at">          </span><span class="fu">name</span><span class="kw">:</span><span class="at"> financial_functions ${{ github.ref_name }}</span></span>
+<span id="cb13-59"><a href="#cb13-59" aria-hidden="true" tabindex="-1"></a><span class="fu">          body</span><span class="kw">: </span><span class="ch">|</span></span>
+<span id="cb13-60"><a href="#cb13-60" aria-hidden="true" tabindex="-1"></a>            Excel-compatible financial functions for DuckDB v1.5.2</span>
+<span id="cb13-61"><a href="#cb13-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-62"><a href="#cb13-62" aria-hidden="true" tabindex="-1"></a>            Download the file matching your computer and unzip it.</span>
+<span id="cb13-63"><a href="#cb13-63" aria-hidden="true" tabindex="-1"></a>            Then open DuckDB with: duckdb -unsigned</span>
+<span id="cb13-64"><a href="#cb13-64" aria-hidden="true" tabindex="-1"></a>            Then load: LOAD '/path/to/financial_functions.duckdb_extension';</span>
+<span id="cb13-65"><a href="#cb13-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-66"><a href="#cb13-66" aria-hidden="true" tabindex="-1"></a>            Platform guide</span>
+<span id="cb13-67"><a href="#cb13-67" aria-hidden="true" tabindex="-1"></a>            - financial_functions-windows_amd64 = Windows 64-bit</span>
+<span id="cb13-68"><a href="#cb13-68" aria-hidden="true" tabindex="-1"></a>            - financial_functions-osx_amd64 = macOS Intel</span>
+<span id="cb13-69"><a href="#cb13-69" aria-hidden="true" tabindex="-1"></a>            - financial_functions-osx_arm64 = macOS Apple Silicon M1/M2/M3</span>
+<span id="cb13-70"><a href="#cb13-70" aria-hidden="true" tabindex="-1"></a><span class="fu">          files</span><span class="kw">: </span><span class="ch">|</span></span>
+<span id="cb13-71"><a href="#cb13-71" aria-hidden="true" tabindex="-1"></a>            artifacts/financial_functions-windows_amd64.duckdb_extension</span>
+<span id="cb13-72"><a href="#cb13-72" aria-hidden="true" tabindex="-1"></a>            artifacts/financial_functions-osx_amd64.duckdb_extension</span>
+<span id="cb13-73"><a href="#cb13-73" aria-hidden="true" tabindex="-1"></a>            artifacts/financial_functions-osx_arm64.duckdb_extension</span>
+<span id="cb13-74"><a href="#cb13-74" aria-hidden="true" tabindex="-1"></a><span class="at">          </span><span class="fu">draft</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span>
+<span id="cb13-75"><a href="#cb13-75" aria-hidden="true" tabindex="-1"></a><span class="at">          </span><span class="fu">prerelease</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Commit and push:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> add .github/workflows/release.yml</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">"Add automated release workflow"</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push origin master</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+</section>
+<section id="verifying-the-ci-builds" class="level2" data-number="10">
+<h2 data-number="10" class="anchored" data-anchor-id="verifying-the-ci-builds"><span class="header-section-number">10</span> Verifying the CI Builds</h2>
+<p>After pushing, go to:</p>
+<pre><code>https://github.com/Tor-Storli/Financial_Functions/actions</code></pre>
+<p>You should see the <strong>Extension CI</strong> workflow running. A successful run looks like this:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Job</th>
+<th>Platforms</th>
+<th>Expected result</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>duckdb-stable-build</code></td>
+<td><code>windows_amd64</code>, <code>osx_amd64</code>, <code>osx_arm64</code></td>
+<td>✅ green</td>
+</tr>
+<tr class="even">
+<td><code>duckdb-next-build</code></td>
+<td><code>windows_amd64</code>, <code>osx_amd64</code>, <code>osx_arm64</code></td>
+<td>✅ green</td>
+</tr>
+<tr class="odd">
+<td>Linux / WASM matrix jobs</td>
+<td>all</td>
+<td>⏭ skipped (intentional)</td>
+</tr>
+</tbody>
+</table>
+<p>Both jobs must be green before submitting to the community registry.</p>
+<hr>
+</section>
+<section id="creating-a-github-release" class="level2" data-number="11">
+<h2 data-number="11" class="anchored" data-anchor-id="creating-a-github-release"><span class="header-section-number">11</span> Creating a GitHub Release</h2>
+<p>Once both CI jobs are green, create a release so users can download the extension directly without needing access to the Actions page.</p>
+<section id="tag-and-release" class="level3" data-number="11.1">
+<h3 data-number="11.1" class="anchored" data-anchor-id="tag-and-release"><span class="header-section-number">11.1</span> Tag and release</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> tag v1.5.2</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push origin v1.5.2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>This triggers the <code>release.yml</code> workflow. After it completes, go to<br></p>
+<pre><code>https://github.com/Your_Github_name/Financial_Functions/releases:   </code></pre>
+<p>Example:</p>
+<pre><code>https://github.com/Tor-Storli/Financial_Functions/releases</code></pre>
+<p>You will see <strong>financial_functions v1.5.2</strong> with three downloadable files:</p>
+<pre><code>financial_functions-windows_amd64.duckdb_extension
+financial_functions-osx_amd64.duckdb_extension
+financial_functions-osx_arm64.duckdb_extension</code></pre>
+</section>
+<section id="creating-subsequent-releases" class="level3" data-number="11.2">
+<h3 data-number="11.2" class="anchored" data-anchor-id="creating-subsequent-releases"><span class="header-section-number">11.2</span> Creating subsequent releases</h3>
+<p>For future DuckDB version updates, update <code>TARGET_DUCKDB_VERSION</code> in the <code>Makefile</code> and <code>duckdb_version</code> in both workflow files, then tag a new version:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> add Makefile .github/workflows/extension-ci.yml .github/workflows/release.yml</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">"Update to DuckDB v1.x.x"</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> tag v1.x.x</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push origin master</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push origin v1.x.x</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+</section>
+</section>
+<section id="how-users-install-the-extension" class="level2" data-number="12">
+<h2 data-number="12" class="anchored" data-anchor-id="how-users-install-the-extension"><span class="header-section-number">12</span> How Users Install the Extension</h2>
+<section id="before-community-registry-approval-current-state" class="level3" data-number="12.1">
+<h3 data-number="12.1" class="anchored" data-anchor-id="before-community-registry-approval-current-state"><span class="header-section-number">12.1</span> Before community registry approval (current state)</h3>
+<p>Users download the file for their platform from the Releases page, unzip it, and load it with the <code>-unsigned</code> flag:</p>
+<p><strong>DuckDB CLI:</strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="ex">duckdb</span> <span class="at">-unsigned</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>LOAD <span class="st">'path/to/financial_functions.duckdb_extension'</span>;</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(pmt(<span class="fl">0.0325</span><span class="op">/</span><span class="dv">12</span>, <span class="dv">180</span>, <span class="dv">350000</span>, <span class="dv">0</span>, <span class="kw">false</span>), <span class="dv">2</span>) <span class="kw">AS</span> monthly_payment;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Python:</strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> duckdb</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>con <span class="op">=</span> duckdb.<span class="ex">connect</span>(config<span class="op">=</span>{<span class="st">"allow_unsigned_extensions"</span>: <span class="va">True</span>})</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>con.execute(<span class="st">"LOAD 'path/to/financial_functions.duckdb_extension'"</span>)</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> con.execute(</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">"SELECT ROUND(pmt(0.0325/12, 180, 350000, 0, false), 2) AS monthly_payment"</span></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>).fetchall()</span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>R:</strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(duckdb)</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>con <span class="ot">&lt;-</span> <span class="fu">dbConnect</span>(<span class="fu">duckdb</span>(), <span class="at">config =</span> <span class="fu">list</span>(<span class="at">allow_unsigned_extensions =</span> <span class="st">"true"</span>))</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="fu">dbExecute</span>(con, <span class="st">"LOAD 'path/to/financial_functions.duckdb_extension'"</span>)</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="fu">dbGetQuery</span>(con,</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">"SELECT ROUND(pmt(0.0325/12, 180, 350000, 0, false), 2) AS monthly_payment"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="after-community-registry-approval-future-state" class="level3" data-number="12.2">
+<h3 data-number="12.2" class="anchored" data-anchor-id="after-community-registry-approval-future-state"><span class="header-section-number">12.2</span> After community registry approval (future state)</h3>
+<p>Once the PR to <code>duckdb/community-extensions</code> is merged, no flag is needed:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>INSTALL financial_functions <span class="kw">FROM</span> community;</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>LOAD   financial_functions;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+</section>
+</section>
+<section id="submitting-to-the-duckdb-community-registry" class="level2" data-number="13">
+<h2 data-number="13" class="anchored" data-anchor-id="submitting-to-the-duckdb-community-registry"><span class="header-section-number">13</span> Submitting to the DuckDB Community Registry</h2>
+<p>This section describes the steps to submit the extension to the official DuckDB Community Extensions registry. This makes it available to all DuckDB users via <code>INSTALL financial_functions FROM community</code>.</p>
+<section id="step-1-get-the-exact-commit-sha" class="level3" data-number="13.1">
+<h3 data-number="13.1" class="anchored" data-anchor-id="step-1-get-the-exact-commit-sha"><span class="header-section-number">13.1</span> Step 1 — Get the exact commit SHA</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb26"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> rev-parse HEAD</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a><span class="co"># e.g. 8839beeabcdef1234567890abcdef1234567890ab</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Copy the full 40-character SHA — you will need it in the next step.</p>
+</section>
+<section id="step-2-fork-the-community-extensions-repository" class="level3" data-number="13.2">
+<h3 data-number="13.2" class="anchored" data-anchor-id="step-2-fork-the-community-extensions-repository"><span class="header-section-number">13.2</span> Step 2 — Fork the community-extensions repository</h3>
+<p>Go to <a href="https://github.com/duckdb/community-extensions" class="uri">https://github.com/duckdb/community-extensions</a> and click <strong>Fork</strong>.</p>
+<p>Clone your fork:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/Tor-Storli/community-extensions.git</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> community-extensions</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> checkout <span class="at">-b</span> add-financial-functions</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="step-3-create-the-description.yml-file" class="level3" data-number="13.3">
+<h3 data-number="13.3" class="anchored" data-anchor-id="step-3-create-the-description.yml-file"><span class="header-section-number">13.3</span> Step 3 — Create the <code>description.yml</code> file</h3>
+<p>Create the folder and file:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb28"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> extensions/financial_functions</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Create <code>extensions/financial_functions/description.yml</code> with the following content, replacing the <code>ref</code> value with your real commit SHA:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">extension</span><span class="kw">:</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> financial_functions</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a><span class="fu">  description</span><span class="kw">: </span><span class="ch">&gt;</span></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>    All 55 Excel-compatible financial functions for DuckDB — annuity,</span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>    cash flows, depreciation, coupon dates, bonds, and miscellaneous</span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">version</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.1.0</span></span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">language</span><span class="kw">:</span><span class="at"> Rust &amp; C++</span></span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">build</span><span class="kw">:</span><span class="at"> cmake</span></span>
+<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">license</span><span class="kw">:</span><span class="at"> MIT</span></span>
+<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">maintainers</span><span class="kw">:</span></span>
+<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> Tor-Storli</span></span>
+<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">excluded_platforms</span><span class="kw">:</span><span class="at"> </span><span class="st">"wasm_mvp;wasm_eh;wasm_threads;linux_amd64;linux_arm64;\</span></span>
+<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a><span class="st">linux_amd64_musl;linux_arm64_musl"</span></span>
+<span id="cb29-14"><a href="#cb29-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-15"><a href="#cb29-15" aria-hidden="true" tabindex="-1"></a><span class="fu">repo</span><span class="kw">:</span></span>
+<span id="cb29-16"><a href="#cb29-16" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">github</span><span class="kw">:</span><span class="at"> Tor-Storli/Financial_Functions</span></span>
+<span id="cb29-17"><a href="#cb29-17" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">ref</span><span class="kw">:</span><span class="at"> 8839beeabcdef1234567890abcdef1234567890ab</span><span class="co">  # ← replace with real SHA</span></span>
+<span id="cb29-18"><a href="#cb29-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-19"><a href="#cb29-19" aria-hidden="true" tabindex="-1"></a><span class="fu">docs</span><span class="kw">:</span></span>
+<span id="cb29-20"><a href="#cb29-20" aria-hidden="true" tabindex="-1"></a><span class="fu">  hello_world</span><span class="kw">: </span><span class="ch">|</span></span>
+<span id="cb29-21"><a href="#cb29-21" aria-hidden="true" tabindex="-1"></a>    -- Monthly mortgage payment on a $350,000 loan at 3.25% over 15 years</span>
+<span id="cb29-22"><a href="#cb29-22" aria-hidden="true" tabindex="-1"></a>    SELECT ROUND(pmt(0.0325/12, 180, 350000, 0, false), 2) AS monthly_payment;</span>
+<span id="cb29-23"><a href="#cb29-23" aria-hidden="true" tabindex="-1"></a>    -- Result: -2459.34</span>
+<span id="cb29-24"><a href="#cb29-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-25"><a href="#cb29-25" aria-hidden="true" tabindex="-1"></a>    -- Net Present Value at 10% discount rate</span>
+<span id="cb29-26"><a href="#cb29-26" aria-hidden="true" tabindex="-1"></a>    SELECT ROUND(npv(0.10, '-10000,3000,4200,6800'), 2) AS npv;</span>
+<span id="cb29-27"><a href="#cb29-27" aria-hidden="true" tabindex="-1"></a>    -- Result: 1188.44</span>
+<span id="cb29-28"><a href="#cb29-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-29"><a href="#cb29-29" aria-hidden="true" tabindex="-1"></a>    -- Internal Rate of Return</span>
+<span id="cb29-30"><a href="#cb29-30" aria-hidden="true" tabindex="-1"></a>    SELECT ROUND(irr('-70000,12000,15000,18000,21000,26000'), 4) AS irr;</span>
+<span id="cb29-31"><a href="#cb29-31" aria-hidden="true" tabindex="-1"></a>    -- Result: 0.0866</span>
+<span id="cb29-32"><a href="#cb29-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-33"><a href="#cb29-33" aria-hidden="true" tabindex="-1"></a><span class="fu">  extended_description</span><span class="kw">: </span><span class="ch">|</span></span>
+<span id="cb29-34"><a href="#cb29-34" aria-hidden="true" tabindex="-1"></a>    financial_functions exposes all 55 Excel-compatible financial functions</span>
+<span id="cb29-35"><a href="#cb29-35" aria-hidden="true" tabindex="-1"></a>    directly in DuckDB SQL, organised into six groups:</span>
+<span id="cb29-36"><a href="#cb29-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-37"><a href="#cb29-37" aria-hidden="true" tabindex="-1"></a>    Annuity (10): fv, pv, pmt, ipmt, ppmt, cumipmt, cumprinc, nper, rate, ispmt</span>
+<span id="cb29-38"><a href="#cb29-38" aria-hidden="true" tabindex="-1"></a>    Cash Flows (5): npv, xnpv, irr, xirr, mirr</span>
+<span id="cb29-39"><a href="#cb29-39" aria-hidden="true" tabindex="-1"></a>    Depreciation (7): sln, syd, db, ddb, vdb, amorlinc, amordegrc</span>
+<span id="cb29-40"><a href="#cb29-40" aria-hidden="true" tabindex="-1"></a>    Coupon Dates (6): coupdaybs, coupdays, coupdaysnc, coupncd, couppcd, coupnum</span>
+<span id="cb29-41"><a href="#cb29-41" aria-hidden="true" tabindex="-1"></a>    Bonds &amp; Securities (13): price, pricedisc, pricemat, yield, yielddisc,</span>
+<span id="cb29-42"><a href="#cb29-42" aria-hidden="true" tabindex="-1"></a>      yieldmat, disc, intrate, received, duration, mduration, accrint, accrintm</span>
+<span id="cb29-43"><a href="#cb29-43" aria-hidden="true" tabindex="-1"></a>    Miscellaneous (14): effect, nominal, dollarde, dollarfr, fvschedule, rri,</span>
+<span id="cb29-44"><a href="#cb29-44" aria-hidden="true" tabindex="-1"></a>      pduration, tbillprice, tbillyield, tbilleq, oddfprice, oddfyield,</span>
+<span id="cb29-45"><a href="#cb29-45" aria-hidden="true" tabindex="-1"></a>      oddlprice, oddlyield</span>
+<span id="cb29-46"><a href="#cb29-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-47"><a href="#cb29-47" aria-hidden="true" tabindex="-1"></a>    All functions match Excel behaviour including sign conventions, day-count</span>
+<span id="cb29-48"><a href="#cb29-48" aria-hidden="true" tabindex="-1"></a>    basis codes 0-4, and iterative solvers for RATE, YIELD, IRR, and XIRR.</span>
+<span id="cb29-49"><a href="#cb29-49" aria-hidden="true" tabindex="-1"></a>    Invalid inputs return NULL rather than crashing.</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="step-4-open-the-pull-request" class="level3" data-number="13.4">
+<h3 data-number="13.4" class="anchored" data-anchor-id="step-4-open-the-pull-request"><span class="header-section-number">13.4</span> Step 4 — Open the pull request</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb30"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> add extensions/financial_functions/description.yml</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">"Add financial_functions community extension"</span></span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push origin add-financial-functions</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Then go to <a href="https://github.com/duckdb/community-extensions" class="uri">https://github.com/duckdb/community-extensions</a> and open a pull request from your <code>add-financial-functions</code> branch. Use this PR description:</p>
+<pre><code>## financial_functions
+
+Adds all 55 Excel-compatible financial functions to DuckDB.
+
+**Language:** Rust
+**License:** MIT
+**Source:** https://github.com/Tor-Storli/Financial_Functions</code></pre>
+<p>Once the PR is merged, the DuckDB community CI will build, sign, and host the extension automatically. It will appear at:</p>
+<pre><code>https://duckdb.org/community_extensions/extensions/financial_functions</code></pre>
+<hr>
+</section>
+</section>
+<section id="cargo.toml-version-reference" class="level2" data-number="14">
+<h2 data-number="14" class="anchored" data-anchor-id="cargo.toml-version-reference"><span class="header-section-number">14</span> <code>Cargo.toml</code> Version Reference</h2>
+<p>The Rust crate versions follow a numbering convention where the DuckDB version maps to the crate version as follows: DuckDB <code>v1.5.x</code> → crate version <code>1.10501.0</code>. The full <code>Cargo.toml</code> for this extension:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33"><pre class="sourceCode toml code-with-copy"><code class="sourceCode toml"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="kw">[package]</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a><span class="dt">name</span> <span class="op">=</span> <span class="st">"financial_functions"</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a><span class="dt">version</span> <span class="op">=</span> <span class="st">"0.1.0"</span></span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a><span class="dt">edition</span> <span class="op">=</span> <span class="st">"2024"</span></span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a><span class="kw">[dependencies]</span></span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a><span class="dt">duckdb</span>              <span class="op">=</span> <span class="op">{ </span><span class="dt">version</span><span class="op"> =</span> <span class="st">"1.10501.0"</span><span class="op">, </span><span class="dt">features</span><span class="op"> =</span> <span class="op">[</span><span class="st">"vtab-loadable"</span><span class="op">,</span> <span class="st">"vscalar"</span><span class="op">] }</span></span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a><span class="dt">duckdb-ext-macros</span>   <span class="op">=</span> <span class="st">"0.1.0"</span></span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a><span class="dt">duckdb-loadable-macros</span> <span class="op">=</span> <span class="st">"1.10501.0"</span></span>
+<span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a><span class="dt">libduckdb-sys</span>       <span class="op">=</span> <span class="op">{ </span><span class="dt">version</span><span class="op"> =</span> <span class="st">"1.10501.0"</span><span class="op">, </span><span class="dt">features</span><span class="op"> =</span> <span class="op">[</span><span class="st">"loadable-extension"</span><span class="op">] }</span></span>
+<span id="cb33-11"><a href="#cb33-11" aria-hidden="true" tabindex="-1"></a><span class="dt">financial</span>           <span class="op">=</span> <span class="st">"1.1.5"</span></span>
+<span id="cb33-12"><a href="#cb33-12" aria-hidden="true" tabindex="-1"></a><span class="dt">chrono</span>              <span class="op">=</span> <span class="st">"0.4"</span></span>
+<span id="cb33-13"><a href="#cb33-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-14"><a href="#cb33-14" aria-hidden="true" tabindex="-1"></a><span class="kw">[lib]</span></span>
+<span id="cb33-15"><a href="#cb33-15" aria-hidden="true" tabindex="-1"></a><span class="dt">crate-type</span> <span class="op">=</span> <span class="op">[</span><span class="st">"cdylib"</span><span class="op">]</span></span>
+<span id="cb33-16"><a href="#cb33-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-17"><a href="#cb33-17" aria-hidden="true" tabindex="-1"></a><span class="kw">[profile.release]</span></span>
+<span id="cb33-18"><a href="#cb33-18" aria-hidden="true" tabindex="-1"></a><span class="dt">lto</span>   <span class="op">=</span> <span class="cn">true</span></span>
+<span id="cb33-19"><a href="#cb33-19" aria-hidden="true" tabindex="-1"></a><span class="dt">strip</span> <span class="op">=</span> <span class="cn">true</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+</section>
+<section id="summary-of-all-files-to-create-or-modify" class="level2" data-number="15">
+<h2 data-number="15" class="anchored" data-anchor-id="summary-of-all-files-to-create-or-modify"><span class="header-section-number">15</span> Summary of All Files to Create or Modify</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>Action</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>Makefile</code></td>
+<td>Create</td>
+<td>Drives the Rust CI build</td>
+</tr>
+<tr class="even">
+<td><code>.gitmodules</code></td>
+<td>Auto-created</td>
+<td>Registers the two submodules</td>
+</tr>
+<tr class="odd">
+<td><code>extension-ci-tools/</code></td>
+<td>Add submodule</td>
+<td>DuckDB CI toolchain</td>
+</tr>
+<tr class="even">
+<td><code>duckdb/</code></td>
+<td>Add submodule</td>
+<td>DuckDB source at v1.5.2</td>
+</tr>
+<tr class="odd">
+<td><code>.github/workflows/extension-ci.yml</code></td>
+<td>Create</td>
+<td>Builds on every push</td>
+</tr>
+<tr class="even">
+<td><code>.github/workflows/release.yml</code></td>
+<td>Create</td>
+<td>Creates GitHub Releases on tags</td>
+</tr>
+<tr class="odd">
+<td><code>extensions/financial_functions/description.yml</code></td>
+<td>Create (in fork)</td>
+<td>Community registry submission</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="summary-of-all-commands" class="level2" data-number="16">
+<h2 data-number="16" class="anchored" data-anchor-id="summary-of-all-commands"><span class="header-section-number">16</span> Summary of All Commands</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb34"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Submodules ────────────────────────────────────────────────────────────────</span></span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> submodule add <span class="at">--depth</span> 1 <span class="dt">\</span></span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>    https://github.com/duckdb/extension-ci-tools.git extension-ci-tools</span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> submodule add <span class="dt">\</span></span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>    https://github.com/duckdb/duckdb.git duckdb</span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> duckdb <span class="kw">&amp;&amp;</span> <span class="fu">git</span> checkout v1.5.2 <span class="kw">&amp;&amp;</span> <span class="bu">cd</span> ..</span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> submodule update <span class="at">--init</span> <span class="at">--recursive</span></span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Commit infrastructure ─────────────────────────────────────────────────────</span></span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> add .gitmodules extension-ci-tools duckdb Makefile <span class="dt">\</span></span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a>        .github/workflows/extension-ci.yml <span class="dt">\</span></span>
+<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a>        .github/workflows/release.yml</span>
+<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">"Add CI build infrastructure for community extension"</span></span>
+<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push origin master</span>
+<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Create a release ──────────────────────────────────────────────────────────</span></span>
+<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> tag v1.5.2</span>
+<span id="cb34-18"><a href="#cb34-18" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push origin v1.5.2</span>
+<span id="cb34-19"><a href="#cb34-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-20"><a href="#cb34-20" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Community registry submission ─────────────────────────────────────────────</span></span>
+<span id="cb34-21"><a href="#cb34-21" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> rev-parse HEAD   <span class="co"># copy the SHA into description.yml</span></span>
+<span id="cb34-22"><a href="#cb34-22" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> community-extensions</span>
+<span id="cb34-23"><a href="#cb34-23" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> checkout <span class="at">-b</span> add-financial-functions</span>
+<span id="cb34-24"><a href="#cb34-24" aria-hidden="true" tabindex="-1"></a><span class="co"># ... create extensions/financial_functions/description.yml ...</span></span>
+<span id="cb34-25"><a href="#cb34-25" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> add extensions/financial_functions/description.yml</span>
+<span id="cb34-26"><a href="#cb34-26" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">"Add financial_functions community extension"</span></span>
+<span id="cb34-27"><a href="#cb34-27" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push origin add-financial-functions</span>
+<span id="cb34-28"><a href="#cb34-28" aria-hidden="true" tabindex="-1"></a><span class="co"># then open PR on github.com/duckdb/community-extensions</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<script src="publishing_duckdb_extension_files/libs/quarto-html/zenscroll-min.js"></script>
+</body></html>
