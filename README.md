@@ -20,6 +20,12 @@ execute:
   eval: false
 ---
 
+## Documentation
+
+[View Creating Extension Documentation](https://tor-storli.github.io/Financial_Functions/duckdb_financial_extension.html)   
+
+[View Publish Extension Documentation](https://tor-storli.github.io/Financial_Functions/publishing_duckdb_extension.html)
+
 # Overview
 
 This tutorial walks through building a **DuckDB community extension in Rust** that exposes 55 Excel-compatible financial functions directly inside DuckDB SQL queries. By the end you will understand:

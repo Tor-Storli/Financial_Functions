@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ---
 title: "Publishing a DuckDB Extension Written in Rust"
 subtitle: "From Local Windows Build to Cross-Platform GitHub Release"
@@ -752,3 +753,759 @@ git commit -m "Add financial_functions community extension"
 git push origin add-financial-functions
 # then open PR on github.com/duckdb/community-extensions
 ```
+=======
+---
+title: "Publishing a DuckDB Extension Written in Rust"
+subtitle: "From Local Windows Build to Cross-Platform GitHub Release"
+author: "Tor Storli and <br> Claude Sonnet 4.6 (Anthropic's AI assistant)"
+date: today
+date-format: "MMMM D, YYYY"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    theme: cosmo
+    code-block-bg: true
+    code-block-border-left: "#2E75B6"
+    highlight-style: github
+    smooth-scroll: true
+  pdf:
+    toc: true
+    number-sections: true
+    colorlinks: true
+    geometry:
+      - margin=1in
+---
+
+## Overview
+
+This document describes every step needed to take a DuckDB extension written
+in Rust — originally built and tested on Windows — and publish it so that
+users on Windows, macOS Intel, and macOS Apple Silicon can download and load
+it. It also covers the preparation required to submit the extension to the
+official DuckDB Community Extensions registry.
+
+The extension used as the example throughout is **financial_functions**, which
+exposes all 55 Excel-compatible financial functions in DuckDB SQL. The source
+repository is at:
+
+> <https://github.com/Tor-Storli/Financial_Functions>
+
+---
+
+## Prerequisites
+
+Before starting, ensure the following are installed on your Windows machine:
+
+- **Rust toolchain** — install from <https://rustup.rs>
+- **Git** — install from <https://git-scm.com>
+- **DuckDB CLI v1.5.2** — download from <https://github.com/duckdb/duckdb/releases/tag/v1.5.2>
+- **VS Code** (recommended editor)
+- A **GitHub account**
+
+Verify your Rust installation:
+
+```bash
+rustc --version
+cargo --version
+```
+
+---
+
+## The Extension Repository Structure
+
+After completing all steps, your repository will contain these key files:
+
+```
+Financial_Functions/
+├── .github/
+│   └── workflows/
+│       ├── extension-ci.yml      # CI: builds on every push to master
+│       └── release.yml           # Release: triggered by version tags
+├── src/                          # Rust source files
+│   ├── lib.rs
+│   ├── annuity.rs
+│   ├── bonds.rs
+│   ├── cash_flows.rs
+│   ├── coupons.rs
+│   ├── depreciation.rs
+│   ├── errors.rs
+│   ├── helpers.rs
+│   └── misc.rs
+├── test/
+│   └── sql/
+│       └── financial_functions.test
+├── duckdb/                       # Git submodule
+├── extension-ci-tools/           # Git submodule
+├── .gitmodules
+├── Cargo.toml
+├── Makefile
+└── README.md
+```
+
+---
+
+## Building the Extension Locally on Windows
+
+Before setting up CI, verify the extension builds and works locally.
+
+### Build the extension
+
+```bash
+# Clean any previous build artifacts
+cargo clean
+
+# Build in release mode
+cargo build --release
+
+# Package as a DuckDB extension file targeting v1.5.2
+cargo duckdb-ext build --duckdb-version v1.5.2 -- --release
+```
+
+### Test the local build
+
+```bash
+duckdb -unsigned
+```
+
+Inside DuckDB:
+
+```sql
+LOAD 'target/release/financial_functions.duckdb_extension';
+
+-- Test a few functions
+SELECT ROUND(pmt(0.0325/12, 180, 350000, 0, false), 2) AS monthly_payment;
+SELECT ROUND(npv(0.10, '-10000,3000,4200,6800'), 2)    AS npv;
+SELECT ROUND(irr('-70000,12000,15000,18000,21000,26000'), 4) AS irr;
+```
+
+The `-unsigned` flag is required for extensions that are not signed by the
+official DuckDB community key.
+
+---
+
+## Setting Up the GitHub Repository
+
+### Make the repository public
+
+In your GitHub repository settings, ensure the repository visibility is set
+to **Public**. The DuckDB community extension system requires a public repo.
+
+### Configure Actions permissions
+
+Go to **Settings → Actions → General** in your repository and set:
+
+- **Actions permissions** → *Allow all actions and reusable workflows*
+- **Workflow permissions** → *Read and write permissions*
+
+Click **Save** after each change. These settings are required for the release
+workflow to create GitHub Releases and for the CI workflow to use DuckDB's
+reusable workflows from `duckdb/extension-ci-tools`.
+
+---
+
+## Adding the Git Submodules
+
+DuckDB's CI toolchain is delivered as a Git submodule. Two submodules are
+required.
+
+### Add the submodules
+
+Run these commands from the root of your repository:
+
+```bash
+# Add the DuckDB CI tools submodule
+git submodule add --depth 1 \
+    https://github.com/duckdb/extension-ci-tools.git \
+    extension-ci-tools
+
+# Add the DuckDB source submodule
+git submodule add \
+    https://github.com/duckdb/duckdb.git \
+    duckdb
+
+# Pin the DuckDB submodule to v1.5.2
+cd duckdb && git checkout v1.5.2 && cd ..
+
+# Initialise all submodules
+git submodule update --init --recursive
+```
+
+### Commit the submodules
+
+```bash
+git add .gitmodules extension-ci-tools duckdb
+git commit -m "Add extension-ci-tools and duckdb submodules"
+git push origin master
+```
+
+The resulting `.gitmodules` file looks like this:
+
+```ini
+[submodule "extension-ci-tools"]
+    path = extension-ci-tools
+    url = https://github.com/duckdb/extension-ci-tools.git
+
+[submodule "duckdb"]
+    path = duckdb
+    url = https://github.com/duckdb/duckdb.git
+```
+
+---
+
+## The Makefile
+
+Rust-based DuckDB extensions use a different build path from C++ extensions.
+Instead of CMake, the build is driven by two Makefiles provided inside
+`extension-ci-tools`. Create a `Makefile` in the repository root:
+
+```makefile
+.PHONY: clean clean_all
+
+PROJ_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
+EXTENSION_NAME=financial_functions
+USE_UNSTABLE_C_API=1
+TARGET_DUCKDB_VERSION=v1.5.2
+SKIP_TESTS=1
+
+all: configure debug
+
+include extension-ci-tools/makefiles/c_api_extensions/base.Makefile
+include extension-ci-tools/makefiles/c_api_extensions/rust.Makefile
+
+configure: venv platform extension_version
+
+debug: build_extension_library_debug build_extension_with_metadata_debug
+release: build_extension_library_release build_extension_with_metadata_release
+
+test: test_debug
+test_debug: test_extension_debug
+test_release: test_extension_release
+
+clean: clean_build clean_rust
+clean_all: clean_configure clean
+```
+
+Key variables explained:
+
+| Variable | Value | Purpose |
+|---|---|---|
+| `EXTENSION_NAME` | `financial_functions` | Must match the Rust crate name in `Cargo.toml` |
+| `USE_UNSTABLE_C_API` | `1` | Required for Rust extensions using DuckDB's C API |
+| `TARGET_DUCKDB_VERSION` | `v1.5.2` | The DuckDB version to build against |
+| `SKIP_TESTS` | `1` | Skips the Python-based test runner (version mismatch workaround) |
+
+Create the file using the terminal to avoid Windows line ending issues:
+
+```bash
+cat > Makefile << 'EOF'
+.PHONY: clean clean_all
+
+PROJ_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
+EXTENSION_NAME=financial_functions
+USE_UNSTABLE_C_API=1
+TARGET_DUCKDB_VERSION=v1.5.2
+SKIP_TESTS=1
+
+all: configure debug
+
+include extension-ci-tools/makefiles/c_api_extensions/base.Makefile
+include extension-ci-tools/makefiles/c_api_extensions/rust.Makefile
+
+configure: venv platform extension_version
+
+debug: build_extension_library_debug build_extension_with_metadata_debug
+release: build_extension_library_release build_extension_with_metadata_release
+
+test: test_debug
+test_debug: test_extension_debug
+test_release: test_extension_release
+
+clean: clean_build clean_rust
+clean_all: clean_configure clean
+EOF
+
+git add Makefile
+git commit -m "Add Makefile for Rust CI toolchain"
+git push origin master
+```
+
+---
+
+## The CI Workflow (`extension-ci.yml`)
+
+This workflow runs automatically on every push to `master` and on every pull
+request. It builds the extension for Windows and macOS (Linux and WASM are
+excluded due to toolchain constraints — see note below).
+
+Create `.github/workflows/extension-ci.yml`:
+
+```yaml
+name: Extension CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  duckdb-stable-build:
+    name: Build extension binaries (stable)
+    uses: duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@main
+    with:
+      duckdb_version: v1.5.2
+      ci_tools_version: main
+      extension_name: financial_functions
+      extra_toolchains: "rust;python3"
+      exclude_archs: "wasm_mvp;wasm_eh;wasm_threads;linux_amd64;linux_arm64;\
+linux_amd64_musl;linux_arm64_musl"
+
+  duckdb-next-build:
+    name: Build extension binaries (next)
+    uses: duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@main
+    with:
+      duckdb_version: main
+      ci_tools_version: main
+      extension_name: financial_functions
+      extra_toolchains: "rust;python3"
+      exclude_archs: "wasm_mvp;wasm_eh;wasm_threads;linux_amd64;linux_arm64;\
+linux_amd64_musl;linux_arm64_musl"
+```
+
+Commit and push:
+
+```bash
+git add .github/workflows/extension-ci.yml
+git commit -m "Add GitHub Actions CI workflow for extension builds"
+git push origin master
+```
+
+::: {.callout-note}
+## Why are Linux and WASM excluded?
+
+The Linux CI build uses an Alpine-based Docker image that had a bug in the
+`apk update` command at the time of writing. The community registry has its
+own Docker infrastructure that is not affected by this bug, so Linux users
+will still receive the extension after submission. WASM is excluded because
+the Rust WASM build requires a Cargo `[[example]]` target that is not part of
+this extension. Both exclusions can be removed in a future release once the
+upstream toolchain issues are resolved.
+:::
+
+---
+
+## The Release Workflow (`release.yml`)
+
+This workflow is triggered whenever you push a version tag (e.g. `v1.5.2`).
+It builds the extension binaries, renames each one to include the platform
+name, and publishes them as a GitHub Release that users can download directly.
+
+Create `.github/workflows/release.yml`:
+
+```yaml
+name: Create Release
+on:
+  push:
+    tags:
+      - 'v*'
+jobs:
+  build:
+    name: Build extension binaries
+    uses: duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@main
+    with:
+      duckdb_version: v1.5.2
+      ci_tools_version: main
+      extension_name: financial_functions
+      extra_toolchains: "rust;python3"
+      exclude_archs: "wasm_mvp;wasm_eh;wasm_threads;linux_amd64;linux_arm64;\
+linux_amd64_musl;linux_arm64_musl"
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: financial_functions-v1.5.2-extension-windows_amd64
+          path: artifacts/windows_amd64/
+
+      - name: Download macOS Intel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: financial_functions-v1.5.2-extension-osx_amd64
+          path: artifacts/osx_amd64/
+
+      - name: Download macOS ARM artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: financial_functions-v1.5.2-extension-osx_arm64
+          path: artifacts/osx_arm64/
+
+      - name: Rename files clearly
+        run: |
+          cp artifacts/windows_amd64/financial_functions.duckdb_extension \
+             artifacts/financial_functions-windows_amd64.duckdb_extension
+          cp artifacts/osx_amd64/financial_functions.duckdb_extension \
+             artifacts/financial_functions-osx_amd64.duckdb_extension
+          cp artifacts/osx_arm64/financial_functions.duckdb_extension \
+             artifacts/financial_functions-osx_arm64.duckdb_extension
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: financial_functions ${{ github.ref_name }}
+          body: |
+            Excel-compatible financial functions for DuckDB v1.5.2
+
+            Download the file matching your computer and unzip it.
+            Then open DuckDB with: duckdb -unsigned
+            Then load: LOAD '/path/to/financial_functions.duckdb_extension';
+
+            Platform guide
+            - financial_functions-windows_amd64 = Windows 64-bit
+            - financial_functions-osx_amd64 = macOS Intel
+            - financial_functions-osx_arm64 = macOS Apple Silicon M1/M2/M3
+          files: |
+            artifacts/financial_functions-windows_amd64.duckdb_extension
+            artifacts/financial_functions-osx_amd64.duckdb_extension
+            artifacts/financial_functions-osx_arm64.duckdb_extension
+          draft: false
+          prerelease: false
+```
+
+Commit and push:
+
+```bash
+git add .github/workflows/release.yml
+git commit -m "Add automated release workflow"
+git push origin master
+```
+
+---
+
+## Verifying the CI Builds
+
+After pushing, go to:
+
+```
+https://github.com/Tor-Storli/Financial_Functions/actions
+```
+
+You should see the **Extension CI** workflow running. A successful run looks
+like this:
+
+| Job | Platforms | Expected result |
+|---|---|---|
+| `duckdb-stable-build` | `windows_amd64`, `osx_amd64`, `osx_arm64` | ✅ green |
+| `duckdb-next-build` | `windows_amd64`, `osx_amd64`, `osx_arm64` | ✅ green |
+| Linux / WASM matrix jobs | all | ⏭ skipped (intentional) |
+
+Both jobs must be green before submitting to the community registry.
+
+---
+
+## Creating a GitHub Release
+
+Once both CI jobs are green, create a release so users can download the
+extension directly without needing access to the Actions page.
+
+### Tag and release
+
+```bash
+git tag v1.5.2
+git push origin v1.5.2
+```
+
+This triggers the `release.yml` workflow. After it completes, go to<br>
+
+```
+https://github.com/Your_Github_name/Financial_Functions/releases:   
+```
+Example:
+```
+https://github.com/Tor-Storli/Financial_Functions/releases
+```
+
+You will see **financial_functions v1.5.2** with three downloadable files:
+
+```
+financial_functions-windows_amd64.duckdb_extension
+financial_functions-osx_amd64.duckdb_extension
+financial_functions-osx_arm64.duckdb_extension
+```
+
+### Creating subsequent releases
+
+For future DuckDB version updates, update `TARGET_DUCKDB_VERSION` in the
+`Makefile` and `duckdb_version` in both workflow files, then tag a new version:
+
+```bash
+git add Makefile .github/workflows/extension-ci.yml .github/workflows/release.yml
+git commit -m "Update to DuckDB v1.x.x"
+git tag v1.x.x
+git push origin master
+git push origin v1.x.x
+```
+
+---
+
+## How Users Install the Extension
+
+### Before community registry approval (current state)
+
+Users download the file for their platform from the Releases page, unzip it,
+and load it with the `-unsigned` flag:
+
+**DuckDB CLI:**
+
+```bash
+duckdb -unsigned
+```
+
+```sql
+LOAD 'path/to/financial_functions.duckdb_extension';
+SELECT ROUND(pmt(0.0325/12, 180, 350000, 0, false), 2) AS monthly_payment;
+```
+
+**Python:**
+
+```python
+import duckdb
+
+con = duckdb.connect(config={"allow_unsigned_extensions": True})
+con.execute("LOAD 'path/to/financial_functions.duckdb_extension'")
+result = con.execute(
+    "SELECT ROUND(pmt(0.0325/12, 180, 350000, 0, false), 2) AS monthly_payment"
+).fetchall()
+print(result)
+```
+
+**R:**
+
+```r
+library(duckdb)
+
+con <- dbConnect(duckdb(), config = list(allow_unsigned_extensions = "true"))
+dbExecute(con, "LOAD 'path/to/financial_functions.duckdb_extension'")
+dbGetQuery(con,
+  "SELECT ROUND(pmt(0.0325/12, 180, 350000, 0, false), 2) AS monthly_payment")
+```
+
+### After community registry approval (future state)
+
+Once the PR to `duckdb/community-extensions` is merged, no flag is needed:
+
+```sql
+INSTALL financial_functions FROM community;
+LOAD   financial_functions;
+```
+
+---
+
+## Submitting to the DuckDB Community Registry
+
+This section describes the steps to submit the extension to the official
+DuckDB Community Extensions registry. This makes it available to all DuckDB
+users via `INSTALL financial_functions FROM community`.
+
+### Step 1 — Get the exact commit SHA
+
+```bash
+git rev-parse HEAD
+# e.g. 8839beeabcdef1234567890abcdef1234567890ab
+```
+
+Copy the full 40-character SHA — you will need it in the next step.
+
+### Step 2 — Fork the community-extensions repository
+
+Go to <https://github.com/duckdb/community-extensions> and click **Fork**.
+
+Clone your fork:
+
+```bash
+git clone https://github.com/Tor-Storli/community-extensions.git
+cd community-extensions
+git checkout -b add-financial-functions
+```
+
+### Step 3 — Create the `description.yml` file
+
+Create the folder and file:
+
+```bash
+mkdir -p extensions/financial_functions
+```
+
+Create `extensions/financial_functions/description.yml` with the following
+content, replacing the `ref` value with your real commit SHA:
+
+```yaml
+extension:
+  name: financial_functions
+  description: >
+    All 55 Excel-compatible financial functions for DuckDB — annuity,
+    cash flows, depreciation, coupon dates, bonds, and miscellaneous
+  version: 0.1.0
+  language: Rust & C++
+  build: cmake
+  license: MIT
+  maintainers:
+    - Tor-Storli
+  excluded_platforms: "wasm_mvp;wasm_eh;wasm_threads;linux_amd64;linux_arm64;\
+linux_amd64_musl;linux_arm64_musl"
+
+repo:
+  github: Tor-Storli/Financial_Functions
+  ref: 8839beeabcdef1234567890abcdef1234567890ab  # ← replace with real SHA
+
+docs:
+  hello_world: |
+    -- Monthly mortgage payment on a $350,000 loan at 3.25% over 15 years
+    SELECT ROUND(pmt(0.0325/12, 180, 350000, 0, false), 2) AS monthly_payment;
+    -- Result: -2459.34
+
+    -- Net Present Value at 10% discount rate
+    SELECT ROUND(npv(0.10, '-10000,3000,4200,6800'), 2) AS npv;
+    -- Result: 1188.44
+
+    -- Internal Rate of Return
+    SELECT ROUND(irr('-70000,12000,15000,18000,21000,26000'), 4) AS irr;
+    -- Result: 0.0866
+
+  extended_description: |
+    financial_functions exposes all 55 Excel-compatible financial functions
+    directly in DuckDB SQL, organised into six groups:
+
+    Annuity (10): fv, pv, pmt, ipmt, ppmt, cumipmt, cumprinc, nper, rate, ispmt
+    Cash Flows (5): npv, xnpv, irr, xirr, mirr
+    Depreciation (7): sln, syd, db, ddb, vdb, amorlinc, amordegrc
+    Coupon Dates (6): coupdaybs, coupdays, coupdaysnc, coupncd, couppcd, coupnum
+    Bonds & Securities (13): price, pricedisc, pricemat, yield, yielddisc,
+      yieldmat, disc, intrate, received, duration, mduration, accrint, accrintm
+    Miscellaneous (14): effect, nominal, dollarde, dollarfr, fvschedule, rri,
+      pduration, tbillprice, tbillyield, tbilleq, oddfprice, oddfyield,
+      oddlprice, oddlyield
+
+    All functions match Excel behaviour including sign conventions, day-count
+    basis codes 0-4, and iterative solvers for RATE, YIELD, IRR, and XIRR.
+    Invalid inputs return NULL rather than crashing.
+```
+
+### Step 4 — Open the pull request
+
+```bash
+git add extensions/financial_functions/description.yml
+git commit -m "Add financial_functions community extension"
+git push origin add-financial-functions
+```
+
+Then go to <https://github.com/duckdb/community-extensions> and open a pull
+request from your `add-financial-functions` branch. Use this PR description:
+
+```
+## financial_functions
+
+Adds all 55 Excel-compatible financial functions to DuckDB.
+
+**Language:** Rust
+**License:** MIT
+**Source:** https://github.com/Tor-Storli/Financial_Functions
+```
+
+Once the PR is merged, the DuckDB community CI will build, sign, and host the
+extension automatically. It will appear at:
+
+```
+https://duckdb.org/community_extensions/extensions/financial_functions
+```
+
+---
+
+## `Cargo.toml` Version Reference
+
+The Rust crate versions follow a numbering convention where the DuckDB version
+maps to the crate version as follows: DuckDB `v1.5.x` → crate version
+`1.10501.0`. The full `Cargo.toml` for this extension:
+
+```toml
+[package]
+name = "financial_functions"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+duckdb              = { version = "1.10501.0", features = ["vtab-loadable", "vscalar"] }
+duckdb-ext-macros   = "0.1.0"
+duckdb-loadable-macros = "1.10501.0"
+libduckdb-sys       = { version = "1.10501.0", features = ["loadable-extension"] }
+financial           = "1.1.5"
+chrono              = "0.4"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+lto   = true
+strip = true
+```
+
+---
+
+## Summary of All Files to Create or Modify
+
+| File | Action | Purpose |
+|---|---|---|
+| `Makefile` | Create | Drives the Rust CI build |
+| `.gitmodules` | Auto-created | Registers the two submodules |
+| `extension-ci-tools/` | Add submodule | DuckDB CI toolchain |
+| `duckdb/` | Add submodule | DuckDB source at v1.5.2 |
+| `.github/workflows/extension-ci.yml` | Create | Builds on every push |
+| `.github/workflows/release.yml` | Create | Creates GitHub Releases on tags |
+| `extensions/financial_functions/description.yml` | Create (in fork) | Community registry submission |
+
+## Summary of All Commands
+
+```bash
+# ── Submodules ────────────────────────────────────────────────────────────────
+git submodule add --depth 1 \
+    https://github.com/duckdb/extension-ci-tools.git extension-ci-tools
+git submodule add \
+    https://github.com/duckdb/duckdb.git duckdb
+cd duckdb && git checkout v1.5.2 && cd ..
+git submodule update --init --recursive
+
+# ── Commit infrastructure ─────────────────────────────────────────────────────
+git add .gitmodules extension-ci-tools duckdb Makefile \
+        .github/workflows/extension-ci.yml \
+        .github/workflows/release.yml
+git commit -m "Add CI build infrastructure for community extension"
+git push origin master
+
+# ── Create a release ──────────────────────────────────────────────────────────
+git tag v1.5.2
+git push origin v1.5.2
+
+# ── Community registry submission ─────────────────────────────────────────────
+git rev-parse HEAD   # copy the SHA into description.yml
+cd community-extensions
+git checkout -b add-financial-functions
+# ... create extensions/financial_functions/description.yml ...
+git add extensions/financial_functions/description.yml
+git commit -m "Add financial_functions community extension"
+git push origin add-financial-functions
+# then open PR on github.com/duckdb/community-extensions
+```
+>>>>>>> origin/master
