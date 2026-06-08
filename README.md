@@ -22,7 +22,7 @@ execute:
 
 ## Documentation
 
-[View Creating Extension Documentation](https://tor-storli.github.io/Financial_Functions/duckdb_financial_extension.html)   
+[View Creating Extension Documentation](https://tor-storli.github.io/Financial_Functions/duckdb_financial_extension.html)
 
 [View Publish Extension Documentation](https://tor-storli.github.io/Financial_Functions/publishing_duckdb_extension.html)
 
@@ -43,7 +43,8 @@ The 55 functions are organised into six groups:
 | Group                  | Functions                                                                                                                                                                |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Annuity**            | `fv`, `pv`, `pmt`, `ipmt`, `ppmt`, `cumipmt`, `cumprinc`, `nper`, `rate`, `ispmt`                                                                                        |
-| **Cash Flows**         | `npv`, `xnpv`, `irr`, `xirr`, `mirr`                                                                                                                                     |
+| **Cash Flows**         | `npv`, `xnpv`, `irr`, `xirr`, `mirr` + LIST variants: `irr_list`, `npv_list`, `mirr_list`, `xnpv_list`, `xirr_list`, `fvschedule_list`                                   |
+|                        |
 | **Depreciation**       | `sln`, `syd`, `db`, `ddb`, `vdb`, `amorlinc`, `amordegrc`                                                                                                                |
 | **Coupon Dates**       | `coupdaybs`, `coupdays`, `coupdaysnc`, `coupncd`, `couppcd`, `coupnum`                                                                                                   |
 | **Bonds & Securities** | `price`, `pricedisc`, `pricemat`, `yield`, `yielddisc`, `yieldmat`, `disc`, `intrate`, `received`, `duration`, `mduration`, `accrint`, `accrintm`                        |
@@ -103,8 +104,11 @@ chrono = "0.4"
 crate-type = ["cdylib"]
 
 [profile.release]
-lto = true
-strip = true
+lto           = true
+strip         = true
+opt-level     = 3
+codegen-units = 1
+panic         = "abort"
 ```
 
 ::: {.callout-note}
@@ -933,14 +937,105 @@ SELECT ROUND(xnpv(
 
 **DuckDB signature:** `xirr(values_csv, dates_csv)`
 
-```sql
+````sql
 -- Excel example: XIRR(cash flows, dates) = 37.34%
 SELECT ROUND(xirr(
     '-10000,2750,4250,3250,2750',
     '2008-01-01,2008-03-01,2008-10-30,2009-02-15,2009-04-01'
 ), 4) AS xirr_result;
 -- Result: 0.3734
+
+## LIST Variants — Native DOUBLE[] Input
+
+The five cash flow functions and FVSCHEDULE also have `_list` variants that
+accept native `DOUBLE[]` array columns instead of CSV strings. These eliminate
+all string parsing overhead and run significantly faster on large tables.
+
+| LIST function | Replaces | What is eliminated |
+|---|---|---|
+| `irr_list(DOUBLE[])` | `irr(VARCHAR)` | CSV number parsing |
+| `npv_list(DOUBLE, DOUBLE[])` | `npv(DOUBLE, VARCHAR)` | CSV number parsing |
+| `mirr_list(DOUBLE[], DOUBLE, DOUBLE)` | `mirr(VARCHAR, DOUBLE, DOUBLE)` | CSV number parsing |
+| `xnpv_list(DOUBLE, DOUBLE[], VARCHAR[])` | `xnpv(DOUBLE, VARCHAR, VARCHAR)` | Number parsing (dates still parsed) |
+| `xirr_list(DOUBLE[], VARCHAR[])` | `xirr(VARCHAR, VARCHAR)` | Number parsing (dates still parsed) |
+| `fvschedule_list(DOUBLE, DOUBLE[])` | `fvschedule(DOUBLE, VARCHAR)` | CSV number parsing |
+
+### When to Use LIST Variants
+
+```sql
+-- Use VARCHAR when building cash flows inline
+SELECT irr('-70000,12000,15000,18000,21000,26000');
+
+-- Use LIST when cash flows are stored as array columns in a table
+CREATE TABLE portfolio AS
+SELECT project_id, [cf0, cf1, cf2, cf3, cf4, cf5] AS cashflows
+FROM raw_data;
+
+-- irr_list reads memory directly — no string parsing
+SELECT project_id, irr_list(cashflows) AS irr
+FROM portfolio;
+````
+
+### Verify LIST Functions Give Same Results as VARCHAR Functions
+
+```sql
+SELECT
+    ROUND(irr('-70000,12000,15000,18000,21000,26000'), 6)                              AS irr_varchar,
+    ROUND(irr_list([-70000.0,12000.0,15000.0,18000.0,21000.0,26000.0]), 6)            AS irr_list;
+-- Both: 0.086631  ✓
+
+SELECT
+    ROUND(npv(0.10, '-10000,3000,4200,6800'), 2)                                       AS npv_varchar,
+    ROUND(npv_list(0.10, [-10000.0, 3000.0, 4200.0, 6800.0]), 2)                      AS npv_list;
+-- Both: 1188.44  ✓
+
+SELECT
+    ROUND(mirr('-120000,39000,30000,21000,37000,46000', 0.10, 0.12), 4)                AS mirr_varchar,
+    ROUND(mirr_list([-120000.0,39000.0,30000.0,21000.0,37000.0,46000.0],0.10,0.12),4) AS mirr_list;
+-- Both: 0.1261  ✓
+
+SELECT
+    ROUND(fvschedule(1.0, '0.09,0.11,0.10'), 4)                                        AS fvschedule_varchar,
+    ROUND(fvschedule_list(1.0, [0.09, 0.11, 0.10]), 4)                                 AS fvschedule_list;
+-- Both: 1.3309  ✓
 ```
+
+### Benchmark — VARCHAR vs LIST (1,000,000 rows)
+
+```sql
+-- Create table with both formats
+CREATE OR REPLACE TABLE cf_bench AS
+WITH raw AS (
+    SELECT
+        i,
+        (-50000 - random() * 150000)::DOUBLE AS cf0,
+        (5000   + random() * 45000)::DOUBLE  AS cf1,
+        (5000   + random() * 45000)::DOUBLE  AS cf2,
+        (5000   + random() * 45000)::DOUBLE  AS cf3,
+        (5000   + random() * 45000)::DOUBLE  AS cf4,
+        (5000   + random() * 45000)::DOUBLE  AS cf5,
+        (5000   + random() * 45000)::DOUBLE  AS cf6
+    FROM generate_series(1, 1000000) AS t(i)
+)
+SELECT
+    i,
+    [cf0,cf1,cf2,cf3,cf4,cf5,cf6]                                AS cf_array,
+    cf0::VARCHAR||','||cf1::VARCHAR||','||cf2::VARCHAR||','||
+    cf3::VARCHAR||','||cf4::VARCHAR||','||cf5::VARCHAR||','||
+    cf6::VARCHAR                                                   AS cf_csv
+FROM raw;
+
+.timer on
+-- VARCHAR
+SELECT COUNT(*), ROUND(AVG(irr(cf_csv)) * 100, 4) FROM cf_bench;
+
+.timer on
+-- LIST — faster: no CSV parsing on 1M rows
+SELECT COUNT(*), ROUND(AVG(irr_list(cf_array)) * 100, 4) FROM cf_bench;
+```
+
+````
+
 
 ---
 
@@ -956,7 +1051,7 @@ Equal depreciation each period.
 -- Excel example: SLN(30000, 7500, 10) = 2250
 SELECT sln(30000, 7500, 10) AS sln_result;
 -- Result: 2250.00
-```
+````
 
 ## SYD — Sum-of-Years-Digits Depreciation
 
@@ -1493,6 +1588,13 @@ pub unsafe fn extension_entrypoint(con: Connection) -> Result<(), Box<dyn Error>
     con.register_scalar_function::<MirrFunction>("mirr")?;
     con.register_scalar_function::<XnpvFunction>("xnpv")?;
     con.register_scalar_function::<XirrFunction>("xirr")?;
+     // Cash flows LIST variants (6) — native DOUBLE[] input
+    con.register_scalar_function::<IrrListFunction>("irr_list")?;
+    con.register_scalar_function::<NpvListFunction>("npv_list")?;
+    con.register_scalar_function::<MirrListFunction>("mirr_list")?;
+    con.register_scalar_function::<XnpvListFunction>("xnpv_list")?;
+    con.register_scalar_function::<XirrListFunction>("xirr_list")?;
+    con.register_scalar_function::<FvscheduleListFunction>("fvschedule_list")?;
     // Depreciation (7)
     con.register_scalar_function::<SlnFunction>("sln")?;
     con.register_scalar_function::<SydFunction>("syd")?;
@@ -1556,12 +1658,13 @@ The function name `extension_entrypoint` does not matter — the macro renames t
 LOAD '<your Extension path>/fin_functions.duckdb_extension';
 -- LOAD 'C:/Users/storl/Desktop/Financial_Functions/fin_functions.duckdb_extension';
 
--- Verify all 55 functions loaded
+-- Verify all 61 functions loaded
 SELECT COUNT(*) AS loaded
 FROM duckdb_functions()
 WHERE function_name IN (
     'fv','pv','pmt','ipmt','ppmt','cumipmt','cumprinc','nper','rate','ispmt',
     'npv','irr','mirr','xnpv','xirr',
+    'irr_list','npv_list','mirr_list','xnpv_list','xirr_list','fvschedule_list',
     'sln','syd','db','ddb','vdb','amorlinc','amordegrc',
     'coupdaybs','coupdays','coupdaysnc','coupncd','couppcd','coupnum',
     'price','pricedisc','pricemat','yield','yielddisc','yieldmat',
@@ -1570,7 +1673,7 @@ WHERE function_name IN (
     'tbillprice','tbillyield','tbilleq',
     'oddfprice','oddfyield','oddlprice','oddlyield'
 );
--- Expected: 55
+-- Expected: 61
 ```
 
 ---
