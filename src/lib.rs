@@ -48,21 +48,12 @@ pub unsafe fn extension_entrypoint(con: Connection) -> Result<(), Box<dyn Error>
     con.register_scalar_function::<RateFunction>("rate")?;
     con.register_scalar_function::<IspmtFunction>("ispmt")?;
 
-// ── Cash flows (5) ──────────────────────────────────────────────────────
+    // ── Cash flows (5) ──────────────────────────────────────────────────────
     con.register_scalar_function::<NpvFunction>("npv")?;
     con.register_scalar_function::<IrrFunction>("irr")?;
     con.register_scalar_function::<MirrFunction>("mirr")?;
     con.register_scalar_function::<XnpvFunction>("xnpv")?;
     con.register_scalar_function::<XirrFunction>("xirr")?;
-
-    // ── Cash flows LIST variants (6) — native DOUBLE[] input ────────────────
-    con.register_scalar_function::<IrrListFunction>("irr_list")?;
-    con.register_scalar_function::<NpvListFunction>("npv_list")?;
-    con.register_scalar_function::<MirrListFunction>("mirr_list")?;
-    con.register_scalar_function::<XnpvListFunction>("xnpv_list")?;
-    con.register_scalar_function::<XirrListFunction>("xirr_list")?;
-    con.register_scalar_function::<FvscheduleListFunction>("fvschedule_list")?;
-
 
     // ── Depreciation (7) ────────────────────────────────────────────────────
     con.register_scalar_function::<SlnFunction>("sln")?;
