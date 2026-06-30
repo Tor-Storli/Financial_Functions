@@ -86,6 +86,7 @@ pub unsafe fn extension_entrypoint(con: Connection) -> Result<(), Box<dyn Error>
     con.register_scalar_function::<MdurationFunction>("mduration")?;
     con.register_scalar_function::<AccrintFunction>("accrint")?;
     con.register_scalar_function::<AccrintmFunction>("accrintm")?;
+    con.register_scalar_function::<ConvexityFunction>("convexity")?;
 
     // ── Misc (14) ───────────────────────────────────────────────────────────
     con.register_scalar_function::<EffectFunction>("effect")?;

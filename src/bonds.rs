@@ -9,6 +9,13 @@ use std::error::Error;
 use crate::helpers::{read_varchar, parse_date, year_frac, freq_per_year, write_f64};
 use crate::coupons::{next_coupon, calc_coupdays, calc_coupnum};
 use crate::errors::{FinError, validate_basis, validate_frequency, validate_date_order};
+use chrono::NaiveDate;
+//use crate::helpers::{read_varchar, parse_date, write_f64, year_frac, freq_per_year};
+// use duckdb::core::{DataChunkHandle, LogicalTypeHandle, LogicalTypeId};
+// use duckdb::vscalar::{ScalarFunctionSignature, VScalar};
+// use duckdb::vtab::arrow::WritableVector;
+// use std::error::Error;
+// use chrono::NaiveDate;
 
 /// Wrap a FinError into Box<dyn Error> for use with `?`.
 #[inline]
@@ -554,3 +561,97 @@ bond_fn!(AccrintmFunction,
         Ok(())
     }
 );
+
+// use duckdb::core::{DataChunkHandle, LogicalTypeHandle, LogicalTypeId};
+// use duckdb::vscalar::{ScalarFunctionSignature, VScalar};
+// use duckdb::vtab::arrow::WritableVector;
+// use std::error::Error;
+// use chrono::NaiveDate;
+//use crate::helpers::{read_varchar, parse_date, write_f64, year_frac, freq_per_year};
+
+/// Build the remaining coupon period schedule (year fractions from settlement)
+/// for a standard periodic-coupon bond. Reuses the same logic pattern as
+/// duration()/mduration() — walks backward from maturity in frequency steps.
+fn coupon_schedule(settle: NaiveDate, maturity: NaiveDate, freq: i32) -> Vec<f64> {
+    let step_months = 12 / freq;
+    let mut dates: Vec<NaiveDate> = Vec::new();
+    let mut d = maturity;
+    while d > settle {
+        dates.push(d);
+        d = crate::helpers::add_months(d, -step_months);
+    }
+    dates.reverse();
+    dates.iter()
+        .map(|&cd| year_frac(settle, cd, 1)) // actual/actual for the curvature calc
+        .collect()
+}
+
+/// Pure-Rust convexity calculation, reusable from both the VScalar wrapper
+/// and any future LIST/batch variant.
+pub fn calc_convexity(
+    settle: NaiveDate,
+    maturity: NaiveDate,
+    coupon: f64,
+    yld: f64,
+    freq: i32,
+) -> f64 {
+    let times = coupon_schedule(settle, maturity, freq);
+    if times.is_empty() { return f64::NAN; }
+
+    let k = freq as f64;
+    let coupon_pmt = 100.0 * coupon / k;
+    let n = times.len();
+
+    let mut price = 0.0f64;
+    let mut convex_sum = 0.0f64;
+
+    for (idx, &t) in times.iter().enumerate() {
+        let period = t * k; // period number (may be fractional for first period)
+        let cf = if idx == n - 1 { coupon_pmt + 100.0 } else { coupon_pmt };
+        let disc = (1.0 + yld / k).powf(period);
+
+        price += cf / disc;
+        convex_sum += cf * period * (period + 1.0) / disc;
+    }
+
+    if price.abs() < 1e-12 { return f64::NAN; }
+
+    convex_sum / (price * (1.0 + yld / k).powi(2) * k * k)
+}
+
+// ── CONVEXITY ────────────────────────────────────────────────────────────────
+pub struct ConvexityFunction;
+impl VScalar for ConvexityFunction {
+    type State = ();
+    fn signatures() -> Vec<ScalarFunctionSignature> {
+        vec![ScalarFunctionSignature::exact(
+            vec![varchar(), varchar(), dbl(), dbl(), dbl(), dbl()],
+            dbl(),
+        )]
+    }
+    unsafe fn invoke(
+        _: &(),
+        input:  &mut DataChunkHandle,
+        output: &mut dyn WritableVector,
+    ) -> Result<(), Box<dyn Error>> {
+        let len = input.len();
+        let mut out = output.flat_vector();
+        for i in 0..len {
+            let settle_str = unsafe { read_varchar(input, 0, i) };
+            let mat_str    = unsafe { read_varchar(input, 1, i) };
+            let coupon     = input.flat_vector(2).as_slice::<f64>()[i];
+            let yld        = input.flat_vector(3).as_slice::<f64>()[i];
+            let freq_raw   = input.flat_vector(4).as_slice::<f64>()[i] as i64;
+            if validate_frequency("convexity", freq_raw).is_err() { out.set_null(i); continue; }
+            let _basis     = input.flat_vector(5).as_slice::<f64>()[i]; // reserved
+
+            match (parse_date(&settle_str), parse_date(&mat_str), freq_per_year(freq_raw as i32)) {
+                (Some(settle), Some(maturity), f) if settle < maturity => {
+                    write_f64(&mut out, i, calc_convexity(settle, maturity, coupon, yld, f));
+                }
+                _ => out.set_null(i),
+            }
+        }
+        Ok(())
+    }
+}

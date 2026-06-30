@@ -1,0 +1,122 @@
+# test/convexity.test
+#
+# Tests for the CONVEXITY function — added alongside DURATION and MDURATION
+# in src/bonds.rs. Run with:
+#   ./duckdb --unsigned < test/convexity.test
+# or via the project's existing PowerShell test runner (run_tests.ps1).
+#
+# CONVEXITY signature: convexity(settlement, maturity, coupon, yield, frequency, basis)
+# Returns DOUBLE — always positive for a standard option-free bond.
+
+require fin_functions
+
+statement ok
+LOAD 'financial_functions';
+
+# ── Basic sanity: known bond from the tutorial ────────────────────────────────
+# 10-year, 4.375% semiannual coupon, 4.37% yield, actual/actual basis
+query I
+SELECT ROUND(convexity('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1), 4);
+----
+76.9003
+
+# ── Convexity must always be positive for an option-free bond ────────────────
+query I
+SELECT convexity('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1) > 0;
+----
+true
+
+# ── Shorter maturity → lower convexity (less curvature) ──────────────────────
+query I
+SELECT
+    convexity('2026-06-30', '2028-06-30', 0.04375, 0.0437, 2, 1) <
+    convexity('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1);
+----
+true
+
+# ── Zero-ish coupon (near-zero) increases convexity relative to higher coupon
+# of the same maturity, holding yield fixed — lower coupon bonds are more convex
+query I
+SELECT
+    convexity('2026-06-30', '2036-06-30', 0.005,   0.0437, 2, 1) >
+    convexity('2026-06-30', '2036-06-30', 0.08,    0.0437, 2, 1);
+----
+true
+
+# ── Annual vs semiannual frequency, same bond — both should be positive
+# and finite (no panics, no NaN propagation)
+query I
+SELECT
+    convexity('2026-06-30', '2036-06-30', 0.04375, 0.0437, 1, 1) IS NOT NULL
+    AND convexity('2026-06-30', '2036-06-30', 0.04375, 0.0437, 4, 1) IS NOT NULL;
+----
+true
+
+# ── Round-trip consistency check against the tutorial's manual calculation ───
+# duration + convexity correction should be closer to actual repriced value
+# than duration alone, for a 50bp shock
+query I
+WITH base AS (
+    SELECT
+        price('2026-06-30', '2036-06-30', 0.04375, 0.0437, 100, 2, 1)  AS p0,
+        mduration('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1)   AS mdur,
+        convexity('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1)   AS conv,
+        price('2026-06-30', '2036-06-30', 0.04375, 0.0487, 100, 2, 1)  AS p1,
+        0.0050 AS dy
+)
+SELECT
+    ABS((p0 + (-mdur*dy + 0.5*conv*dy*dy) * p0) - p1) <
+    ABS((p0 + (-mdur*dy) * p0) - p1)
+FROM base;
+----
+true
+
+# ── Guard: settlement >= maturity returns NULL (matches duration()/price() behaviour)
+query I
+SELECT convexity('2036-06-30', '2026-06-30', 0.04375, 0.0437, 2, 1) IS NULL;
+----
+true
+
+query I
+SELECT convexity('2026-06-30', '2026-06-30', 0.04375, 0.0437, 2, 1) IS NULL;
+----
+true
+
+# ── Guard: invalid frequency (not 1, 2, or 4) returns NULL ───────────────────
+query I
+SELECT convexity('2026-06-30', '2036-06-30', 0.04375, 0.0437, 3, 1) IS NULL;
+----
+true
+
+query I
+SELECT convexity('2026-06-30', '2036-06-30', 0.04375, 0.0437, 0, 1) IS NULL;
+----
+true
+
+# ── Guard: malformed date strings return NULL, not an error ──────────────────
+query I
+SELECT convexity('not-a-date', '2036-06-30', 0.04375, 0.0437, 2, 1) IS NULL;
+----
+true
+
+query I
+SELECT convexity('2026-06-30', 'also-not-a-date', 0.04375, 0.0437, 2, 1) IS NULL;
+----
+true
+
+# ── Guard: NULL input propagates to NULL output, no crash ────────────────────
+query I
+SELECT convexity(NULL, '2036-06-30', 0.04375, 0.0437, 2, 1) IS NULL;
+----
+true
+
+query I
+SELECT convexity('2026-06-30', '2036-06-30', NULL, 0.0437, 2, 1) IS NULL;
+----
+true
+
+query I
+SELECT convexity('2026-06-30', '2036-06-30', 0.04375, NULL, 2, 1) IS NULL;
+----
+true
+
