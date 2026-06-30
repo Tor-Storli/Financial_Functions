@@ -22,9 +22,11 @@ execute:
 
 ## Documentation
 
-[View Creating Extension Documentation](https://tor-storli.github.io/Financial_Functions/duckdb_financial_extension.html)   
+[View Creating Extension Documentation](https://tor-storli.github.io/Financial_Functions/duckdb_financial_extension.html)
 
 [View Publish Extension Documentation](https://tor-storli.github.io/Financial_Functions/publishing_duckdb_extension.html)
+
+[View Bond Tutorial Documentation](https://tor-storli.github.io/Financial_Functions/bond_investing_tutorial.html)
 
 # Overview
 
@@ -38,7 +40,7 @@ This tutorial walks through building a **DuckDB community extension in Rust** th
 
 ## What We Are Building
 
-The 55 functions are organised into six groups:
+The 56 functions are organised into six groups:
 
 | Group                  | Functions                                                                                                                                                                |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -1471,7 +1473,7 @@ SELECT ROUND(oddlyield(
 
 # Extension Entry Point
 
-All 55 functions are registered in a single entry point:
+All 56 functions are registered in a single entry point:
 
 ```rust
 #[duckdb_entrypoint_c_api]
@@ -1556,7 +1558,7 @@ The function name `extension_entrypoint` does not matter — the macro renames t
 LOAD '<your Extension path>/fin_functions.duckdb_extension';
 -- LOAD 'C:/Users/storl/Desktop/Financial_Functions/fin_functions.duckdb_extension';
 
--- Verify all 55 functions loaded
+-- Verify all 56 functions loaded
 SELECT COUNT(*) AS loaded
 FROM duckdb_functions()
 WHERE function_name IN (
@@ -1568,9 +1570,9 @@ WHERE function_name IN (
     'disc','intrate','received','duration','mduration','accrint','accrintm',
     'effect','nominal','dollarde','dollarfr','fvschedule','rri','pduration',
     'tbillprice','tbillyield','tbilleq',
-    'oddfprice','oddfyield','oddlprice','oddlyield'
+    'oddfprice','oddfyield','oddlprice','oddlyield','convexity'
 );
--- Expected: 55
+-- Expected: 56
 ```
 
 ---

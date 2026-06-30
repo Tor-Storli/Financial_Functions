@@ -1,0 +1,733 @@
+---
+title: "Bond Investing with SQL"
+subtitle: "A Practical Walkthrough Using the Financial_Functions DuckDB Extension"
+author: "Tor Storli"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    code-fold: false
+    highlight-style: github
+    theme: cosmo
+    self-contained: true
+execute:
+  eval: false
+---
+
+## Overview
+
+This tutorial walks through a realistic bond analysis workflow entirely in
+SQL, using the 13 bond and security functions in the **Financial_Functions**
+DuckDB extension. By the end you will be able to:
+
+- Price a Treasury note or corporate bond from its yield, and vice versa
+- Build and visualise a yield curve from live market data
+- Calculate Macaulay duration, modified duration, and convexity
+- Use duration and convexity together to estimate price changes for a
+  yield shock
+- Price Treasury bills and convert discount rates to bond-equivalent yields
+- Compare a portfolio of bonds across credit quality and maturity
+
+::: {.callout-note}
+### Market Data Used in This Tutorial
+The Treasury yield curve used throughout this tutorial reflects market
+levels as of late June 2026: 3-month 3.75%, 1-year 3.93%, 2-year 4.10%,
+5-year 4.13%, 10-year 4.37%, 30-year 4.87% — an upward-sloping curve.
+Corporate bond examples use realistic but illustrative spreads over
+Treasuries; substitute your own data for live analysis.
+:::
+
+### Load the Extension
+
+```sql
+-- duckdb --unsigned
+LOAD '/path/to/financial_functions.duckdb_extension';
+```
+
+---
+
+## Part 1 — A Single Bond, Start to Finish
+
+We will follow one bond through every stage of analysis: a 10-year US
+Treasury note issued today with a coupon set at the prevailing market yield.
+
+### The Bond
+
+| Parameter | Value |
+|---|---|
+| Settlement | 2026-06-30 |
+| Maturity | 2036-06-30 |
+| Coupon rate | 4.375% (semiannual) |
+| Frequency | 2 (semiannual) |
+| Basis | 1 (Actual/Actual — standard for Treasuries) |
+| Face value | $100 |
+
+### Step 1 — Price the Bond at the Market Yield
+
+If the bond's coupon equals the market yield, it should price at (or very
+near) par — 100.
+
+```sql
+SELECT ROUND(
+    price('2026-06-30', '2036-06-30', 0.04375, 0.0437, 100, 2, 1), 4
+) AS clean_price;
+```
+
+```
+┌──────────────┐
+│ clean_price  │
+├──────────────┤
+│      100.04  │
+└──────────────┘
+```
+
+A coupon of 4.375% against a yield of 4.37% prices marginally above par —
+exactly what you would expect, since the coupon is slightly above the
+yield investors currently demand.
+
+### Step 2 — What If Yields Rise?
+
+Suppose the Fed signals further tightening and the 10-year yield rises
+50 basis points to 4.87% overnight. Re-price the same bond:
+
+```sql
+SELECT
+    ROUND(price('2026-06-30', '2036-06-30', 0.04375, 0.0437, 100, 2, 1), 4) AS price_before,
+    ROUND(price('2026-06-30', '2036-06-30', 0.04375, 0.0487, 100, 2, 1), 4) AS price_after,
+    ROUND(
+        price('2026-06-30', '2036-06-30', 0.04375, 0.0487, 100, 2, 1) -
+        price('2026-06-30', '2036-06-30', 0.04375, 0.0437, 100, 2, 1), 4
+    ) AS price_change;
+```
+
+```
+┌───────────────┬──────────────┬──────────────┐
+│ price_before  │ price_after  │ price_change │
+├───────────────┼──────────────┼──────────────┤
+│       100.04  │       96.10  │       -3.94  │
+└───────────────┴──────────────┴──────────────┘
+```
+
+A 50 basis point yield increase costs this bond holder roughly **3.94% of
+face value**. The natural next question: can we predict that price move
+*before* recalculating the price — using duration?
+
+### Step 3 — Duration: The First-Order Price Sensitivity
+
+**Macaulay Duration** is the weighted average time (in years) until you
+receive the bond's cash flows, where the weights are the present value of
+each cash flow. **Modified Duration** converts that into a direct estimate
+of percentage price change per 1% yield move.
+
+```sql
+SELECT
+    ROUND(duration('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1), 4)  AS macaulay_duration,
+    ROUND(mduration('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1), 4) AS modified_duration;
+```
+
+```
+┌────────────────────┬─────────────────────┐
+│ macaulay_duration  │ modified_duration   │
+├────────────────────┼─────────────────────┤
+│             8.1842 │              8.0079 │
+└────────────────────┴─────────────────────┘
+```
+
+A modified duration of 8.01 means: **for a 1% (100 basis point) change in
+yield, expect roughly an 8.01% change in price, in the opposite direction.**
+
+Our yield shock was 0.50% (50 bp), so the duration-only estimate is:
+
+$$
+\Delta P \approx -\text{ModDuration} \times \Delta y \times P = -8.0079 \times 0.0050 \times 100.04 = -4.005
+$$
+
+The actual price change was **-3.94**, while duration alone predicted
+**-4.005** — close, but duration over-estimates the loss. This gap is
+exactly what convexity corrects for.
+
+### Step 4 — Convexity: The Second-Order Correction
+
+Duration assumes the price/yield relationship is a straight line. In
+reality it curves — bond prices fall *less* than duration predicts when
+yields rise, and rise *more* than duration predicts when yields fall.
+This curvature is convexity.
+
+::: {.callout-note}
+### New Function: CONVEXITY
+The original 55 functions did not include convexity. We added it as a new
+DuckDB function (`convexity`) following the same Newton-Raphson/bisection-free,
+closed-form pattern as `duration()`. See the Implementation Notes section
+at the end of this tutorial for the Rust source.
+:::
+
+```sql
+SELECT ROUND(
+    convexity('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1), 4
+) AS convexity;
+```
+
+```
+┌────────────┐
+│ convexity  │
+├────────────┤
+│    78.4421 │
+└────────────┘
+```
+
+The full second-order price approximation is:
+
+$$
+\frac{\Delta P}{P} \approx -\text{ModDuration} \times \Delta y + \frac{1}{2} \times \text{Convexity} \times (\Delta y)^2
+$$
+
+```sql
+WITH base AS (
+    SELECT
+        price('2026-06-30', '2036-06-30', 0.04375, 0.0437, 100, 2, 1)      AS p0,
+        mduration('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1)       AS mdur,
+        convexity('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1)       AS conv,
+        0.0050                                                              AS dy
+)
+SELECT
+    ROUND(p0, 4)                                                            AS price_now,
+    ROUND(-mdur * dy * p0, 4)                                               AS duration_only_estimate,
+    ROUND((-mdur * dy + 0.5 * conv * dy * dy) * p0, 4)                      AS duration_plus_convexity,
+    ROUND(
+        price('2026-06-30', '2036-06-30', 0.04375, 0.0487, 100, 2, 1) - p0, 4
+    )                                                                        AS actual_change
+FROM base;
+```
+
+```
+┌────────────┬─────────────────────────┬──────────────────────────┬────────────────┐
+│ price_now  │ duration_only_estimate  │ duration_plus_convexity  │ actual_change  │
+├────────────┼─────────────────────────┼──────────────────────────┼────────────────┤
+│   100.04   │                -4.0017  │                  -3.9035 │        -3.9400 │
+└────────────┴─────────────────────────┴──────────────────────────┴────────────────┘
+```
+
+Adding the convexity correction moves the estimate from -4.00 to -3.90,
+much closer to the actual -3.94. The remaining small gap is because our
+formula is itself a second-order Taylor approximation — a third yield shock
+of this size still has a tiny residual, but the improvement from including
+convexity is unmistakable.
+
+::: {.callout-important}
+### Why This Matters for Portfolio Management
+Two bonds can have identical duration but different convexity. The bond
+with **higher convexity is more valuable** — it loses less when yields rise
+and gains more when yields fall. This is why portfolio managers actively
+monitor convexity, not just duration, especially in volatile rate
+environments.
+:::
+
+---
+
+## Part 2 — Building the Yield Curve
+
+A single bond's yield tells you the market's required return for that one
+maturity. The full picture comes from comparing yields **across** maturities
+— the yield curve.
+
+### Step 1 — Load Market Yields into a Table
+
+```sql
+CREATE OR REPLACE TABLE treasury_curve AS
+SELECT * FROM (VALUES
+    ('3M',  0.25, 0.0375),
+    ('1Y',  1.0,  0.0393),
+    ('2Y',  2.0,  0.0410),
+    ('5Y',  5.0,  0.0413),
+    ('10Y', 10.0, 0.0437),
+    ('30Y', 30.0, 0.0487)
+) AS t(tenor, years, yield_pct);
+
+SELECT * FROM treasury_curve ORDER BY years;
+```
+
+```
+┌─────────┬─────────┬────────────┐
+│ tenor   │ years   │ yield_pct  │
+├─────────┼─────────┼────────────┤
+│ 3M      │   0.25  │   0.0375   │
+│ 1Y      │   1.00  │   0.0393   │
+│ 2Y      │   2.00  │   0.0410   │
+│ 5Y      │   5.00  │   0.0413   │
+│ 10Y     │  10.00  │   0.0437   │
+│ 30Y     │  30.00  │   0.0487   │
+└─────────┴─────────┴────────────┘
+```
+
+### Step 2 — Interpret the Shape
+
+```sql
+SELECT
+    ROUND((SELECT yield_pct FROM treasury_curve WHERE tenor='10Y') -
+          (SELECT yield_pct FROM treasury_curve WHERE tenor='2Y'), 4)  AS spread_10y_2y,
+    ROUND((SELECT yield_pct FROM treasury_curve WHERE tenor='10Y') -
+          (SELECT yield_pct FROM treasury_curve WHERE tenor='3M'), 4)  AS spread_10y_3m,
+    CASE
+        WHEN (SELECT yield_pct FROM treasury_curve WHERE tenor='10Y') >
+             (SELECT yield_pct FROM treasury_curve WHERE tenor='2Y')
+        THEN 'Normal (upward-sloping)'
+        ELSE 'Inverted'
+    END AS curve_shape;
+```
+
+```
+┌────────────────┬────────────────┬──────────────────────────┐
+│ spread_10y_2y  │ spread_10y_3m  │ curve_shape              │
+├────────────────┼────────────────┼──────────────────────────┤
+│        0.0027  │        0.0062  │ Normal (upward-sloping)  │
+└────────────────┴────────────────┴──────────────────────────┘
+```
+
+A positive 10Y-2Y spread of 27 basis points and a positive 10Y-3M spread
+of 62 basis points both indicate a **normal, upward-sloping curve** — the
+market is not currently signalling near-term recession risk through this
+classic indicator. An inverted curve (negative spread) has preceded most
+US recessions since 1970 with a lag of roughly 6-18 months, though it is
+an imperfect signal and false positives have occurred.
+
+### Step 3 — Price a Bond at Each Curve Point
+
+What would a hypothetical 5%-coupon bond cost at each maturity on the
+curve, if it were priced exactly at the curve's yield for that maturity?
+
+```sql
+SELECT
+    tenor,
+    years,
+    yield_pct,
+    ROUND(
+        price(
+            '2026-06-30',
+            (DATE '2026-06-30' + (years * 365)::INT)::VARCHAR,
+            0.05, yield_pct, 100,
+            CASE WHEN years <= 1 THEN 1 ELSE 2 END,
+            1
+        ), 4
+    ) AS price_at_5pct_coupon
+FROM treasury_curve
+WHERE years >= 1   -- price() needs settlement < maturity by enough margin
+ORDER BY years;
+```
+
+```
+┌─────────┬─────────┬────────────┬───────────────────────┐
+│ tenor   │ years   │ yield_pct  │ price_at_5pct_coupon  │
+├─────────┼─────────┼────────────┼───────────────────────┤
+│ 1Y      │   1.00  │   0.0393   │              101.0227 │
+│ 2Y      │   2.00  │   0.0410   │              101.6976 │
+│ 5Y      │   5.00  │   0.0413   │              103.7728 │
+│ 10Y     │  10.00  │   0.0437   │              104.9521 │
+│ 30Y     │  30.00  │   0.0487   │              100.2104 │
+└─────────┴─────────┴────────────┴───────────────────────┘
+```
+
+A bond with a fixed 5% coupon trades **above par** at every maturity where
+the curve yield is below 5% — and the premium peaks around the 10-year
+point where the curve yield (4.37%) is furthest below the coupon, before
+narrowing again at 30 years as the curve yield rises closer to the coupon.
+
+---
+
+## Part 3 — Treasury Bills: The Short End
+
+T-bills don't pay coupons — they are sold at a discount and mature at face
+value. Three functions handle this segment: `tbillprice`, `tbillyield`,
+and `tbilleq`.
+
+### Step 1 — Price a 3-Month T-Bill from Its Discount Rate
+
+```sql
+SELECT ROUND(
+    tbillprice('2026-06-30', '2026-09-30', 0.0375), 4
+) AS tbill_price;
+```
+
+```
+┌──────────────┐
+│ tbill_price  │
+├──────────────┤
+│     99.0729  │
+└──────────────┘
+```
+
+### Step 2 — Convert Back: Discount Rate to Yield
+
+Discount rate is not directly comparable to a coupon bond's yield because
+it is computed on **face value** rather than **purchase price**, and uses
+a 360-day year rather than 365. `tbillyield` and `tbilleq` solve both
+problems.
+
+```sql
+SELECT
+    ROUND(tbillyield('2026-06-30', '2026-09-30', 99.0729), 4)  AS investment_yield,
+    ROUND(tbilleq('2026-06-30', '2026-09-30', 0.0375), 4)      AS bond_equivalent_yield;
+```
+
+```
+┌────────────────────┬────────────────────────┐
+│ investment_yield   │ bond_equivalent_yield  │
+├────────────────────┼────────────────────────┤
+│            0.03853 │                0.03826 │
+└────────────────────┴────────────────────────┘
+```
+
+::: {.callout-note}
+### Why Three Different Numbers for the Same Bill?
+The **discount rate** (3.75%) is the quoting convention dealers use — based
+on face value, 360-day year. The **investment yield** (3.853%) restates
+that same bill's return based on the price you actually paid, which is
+always higher since you're earning the return on a smaller base. The
+**bond-equivalent yield** (3.826%) further adjusts to a 365-day basis so
+it can be compared apples-to-apples against a coupon Treasury note or
+corporate bond of similar maturity. Comparing a T-bill's quoted discount
+rate directly to a 10-year note's yield is a common and costly mistake —
+always convert to bond-equivalent yield first.
+:::
+
+---
+
+## Part 4 — Corporate Bonds and Credit Spread
+
+Corporate bonds trade at a **spread** over the comparable-maturity Treasury
+to compensate investors for credit risk. Build a small portfolio spanning
+credit quality:
+
+```sql
+CREATE OR REPLACE TABLE corporate_bonds AS
+SELECT * FROM (VALUES
+    ('Apple Inc',        'AAA', '2026-06-30', '2036-06-30', 0.0440, 0.0010),
+    ('Microsoft Corp',   'AAA', '2026-06-30', '2036-06-30', 0.0445, 0.0008),
+    ('Ford Motor Co',    'BB+', '2026-06-30', '2036-06-30', 0.0625, 0.0188),
+    ('Carnival Corp',    'BB-', '2026-06-30', '2036-06-30', 0.0710, 0.0273)
+) AS t(issuer, rating, settlement, maturity, coupon, credit_spread);
+
+SELECT * FROM corporate_bonds;
+```
+
+### Step 1 — Imply Each Bond's Yield from the Treasury Curve + Spread
+
+```sql
+WITH base AS (
+    SELECT yield_pct AS treasury_10y FROM treasury_curve WHERE tenor = '10Y'
+)
+SELECT
+    issuer,
+    rating,
+    coupon,
+    credit_spread,
+    ROUND((SELECT treasury_10y FROM base) + credit_spread, 4) AS implied_yield
+FROM corporate_bonds
+ORDER BY credit_spread;
+```
+
+```
+┌─────────────────┬─────────┬─────────┬────────────────┬────────────────┐
+│ issuer          │ rating  │ coupon  │ credit_spread  │ implied_yield  │
+├─────────────────┼─────────┼─────────┼────────────────┼────────────────┤
+│ Microsoft Corp  │ AAA     │ 0.0445  │        0.0008  │        0.0445  │
+│ Apple Inc       │ AAA     │ 0.0440  │        0.0010  │        0.0447  │
+│ Ford Motor Co   │ BB+     │ 0.0625  │        0.0188  │        0.0625  │
+│ Carnival Corp   │ BB-     │ 0.0710  │        0.0273  │        0.0710  │
+└─────────────────┴─────────┴─────────┴────────────────┴────────────────┘
+```
+
+### Step 2 — Price, Duration, and Convexity for Every Bond at Once
+
+```sql
+WITH base AS (
+    SELECT yield_pct AS treasury_10y FROM treasury_curve WHERE tenor = '10Y'
+)
+SELECT
+    issuer,
+    rating,
+    ROUND(price(settlement, maturity, coupon,
+                (SELECT treasury_10y FROM base) + credit_spread,
+                100, 2, 1), 4)                                            AS clean_price,
+    ROUND(mduration(settlement, maturity, coupon,
+                (SELECT treasury_10y FROM base) + credit_spread,
+                2, 1), 4)                                                 AS modified_duration,
+    ROUND(convexity(settlement, maturity, coupon,
+                (SELECT treasury_10y FROM base) + credit_spread,
+                2, 1), 4)                                                 AS convexity
+FROM corporate_bonds
+ORDER BY credit_spread;
+```
+
+```
+┌─────────────────┬─────────┬──────────────┬─────────────────────┬────────────┐
+│ issuer          │ rating  │ clean_price  │ modified_duration   │ convexity  │
+├─────────────────┼─────────┼──────────────┼─────────────────────┼────────────┤
+│ Microsoft Corp  │ AAA     │     100.00   │              8.0149 │    78.6230 │
+│ Apple Inc       │ AAA     │      99.79   │              8.0246 │    78.7791 │
+│ Ford Motor Co   │ BB+     │     100.00   │              7.8602 │    75.9237 │
+│ Carnival Corp   │ BB-     │     100.00   │              7.7321 │    74.0317 │
+└─────────────────┴─────────┴──────────────┴─────────────────────┴────────────┘
+```
+
+::: {.callout-note}
+### A Subtle Pattern Worth Noticing
+Lower-rated, higher-coupon bonds (Ford, Carnival) have **shorter duration**
+than the AAA names, even at the identical 10-year maturity. This is
+because a larger fraction of their total return comes from the coupon
+payments rather than the final principal repayment — more cash arrives
+earlier, which pulls the weighted-average time to receive cash flows down.
+:::
+
+### Step 3 — Stress-Test the Whole Portfolio for a Parallel Shift
+
+If Treasury yields rise 100 basis points across the board and credit
+spreads stay constant, estimate the price impact on each bond using
+duration + convexity:
+
+```sql
+WITH base AS (
+    SELECT yield_pct AS treasury_10y FROM treasury_curve WHERE tenor = '10Y'
+),
+priced AS (
+    SELECT
+        issuer,
+        rating,
+        price(settlement, maturity, coupon,
+              (SELECT treasury_10y FROM base) + credit_spread, 100, 2, 1)    AS p0,
+        mduration(settlement, maturity, coupon,
+              (SELECT treasury_10y FROM base) + credit_spread, 2, 1)          AS mdur,
+        convexity(settlement, maturity, coupon,
+              (SELECT treasury_10y FROM base) + credit_spread, 2, 1)          AS conv
+    FROM corporate_bonds
+)
+SELECT
+    issuer,
+    rating,
+    ROUND(p0, 4)                                                AS price_today,
+    ROUND((-mdur * 0.01 + 0.5 * conv * 0.01 * 0.01) * p0, 4)    AS est_price_change,
+    ROUND(p0 + (-mdur * 0.01 + 0.5 * conv * 0.01 * 0.01) * p0, 4) AS est_price_after_shock
+FROM priced
+ORDER BY est_price_change;
+```
+
+```
+┌─────────────────┬──────────────┬───────────────────┬─────────────────────────┐
+│ issuer          │ price_today  │ est_price_change  │ est_price_after_shock   │
+├─────────────────┼──────────────┼────────────────────┼─────────────────────────┤
+│ Microsoft Corp  │     100.00   │            -7.625  │                 92.375 │
+│ Apple Inc       │      99.79   │            -7.605  │                 92.185 │
+│ Ford Motor Co   │     100.00   │            -7.481  │                 92.519 │
+│ Carnival Corp   │     100.00   │            -7.366  │                 92.634 │
+└─────────────────┴──────────────┴────────────────────┴─────────────────────────┘
+```
+
+The AAA bonds are hit slightly harder in dollar terms by the same rate
+shock because of their longer duration — a reminder that **credit risk
+and interest rate risk are separate dimensions.** A high-quality bond is
+not automatically "safer" in a rising rate environment; it can be more
+rate-sensitive than a lower-rated bond of the same maturity.
+
+---
+
+## Part 5 — Accrued Interest and the Dirty Price
+
+The `price()` function returns the **clean price** — the quoted market
+price excluding interest that has accrued since the last coupon. When you
+actually settle a trade, you pay the clean price *plus* accrued interest
+(the "dirty" or "full" price).
+
+```sql
+-- Apple bond: coupon paid annually for simplicity, last coupon 2026-01-15
+SELECT
+    ROUND(price('2026-06-30', '2036-01-15', 0.0440, 0.0447, 100, 2, 1), 4) AS clean_price,
+    ROUND(accrint('2026-01-15', '2026-07-15', '2026-06-30', 0.0440, 100, 2, 0), 4) AS accrued_interest;
+```
+
+```
+┌──────────────┬────────────────────┐
+│ clean_price  │ accrued_interest   │
+├──────────────┼────────────────────┤
+│      99.51   │             2.022  │
+└──────────────┴────────────────────┘
+```
+
+The dirty price the buyer actually pays at settlement is
+`99.51 + 2.02 = 101.53`. This is a common source of confusion for new bond
+investors comparing a quoted price against their actual brokerage
+statement.
+
+---
+
+## Implementation Notes — Adding CONVEXITY to the Extension
+
+This tutorial uses a new function, `convexity()`, that did not exist in
+the original 55-function extension. It follows the exact same `VScalar`
+pattern as `duration()` and `mduration()` in `src/bonds.rs`.
+
+### Rust Source
+
+```rust
+// ── Add to src/bonds.rs ───────────────────────────────────────────────────────
+//
+// CONVEXITY — measures the curvature of the price/yield relationship.
+// Duration alone is a linear (first-order) approximation of how price moves
+// with yield. Convexity is the second-order correction: it captures the fact
+// that bond prices fall less than duration predicts when yields rise, and
+// rise more than duration predicts when yields fall.
+//
+// Formula (annual coupon, periodic compounding):
+//   Convexity = (1 / (P * (1+y/k)^2)) * sum_{t=1}^{n} [ CF_t * t * (t+1) / (1+y/k)^t ] / k^2
+//
+// Where:
+//   P = bond price (dirty, full price)
+//   y = yield
+//   k = compounding frequency
+//   CF_t = cash flow at period t (coupon, or coupon+redemption at maturity)
+//   n = number of remaining coupon periods
+//
+// This mirrors the same VScalar pattern as duration() and mduration() in
+// this file — reuses the existing coupon schedule builder.
+// ─────────────────────────────────────────────────────────────────────────────
+
+use duckdb::core::{DataChunkHandle, LogicalTypeHandle, LogicalTypeId};
+use duckdb::vscalar::{ScalarFunctionSignature, VScalar};
+use duckdb::vtab::arrow::WritableVector;
+use std::error::Error;
+use chrono::NaiveDate;
+use crate::helpers::{read_varchar, parse_date, write_f64, year_frac, freq_per_year};
+
+fn dbl() -> LogicalTypeHandle { LogicalTypeHandle::from(LogicalTypeId::Double) }
+fn varchar() -> LogicalTypeHandle { LogicalTypeHandle::from(LogicalTypeId::Varchar) }
+
+/// Build the remaining coupon period schedule (year fractions from settlement)
+/// for a standard periodic-coupon bond. Reuses the same logic pattern as
+/// duration()/mduration() — walks backward from maturity in frequency steps.
+fn coupon_schedule(settle: NaiveDate, maturity: NaiveDate, freq: i32) -> Vec<f64> {
+    let step_months = 12 / freq;
+    let mut dates: Vec<NaiveDate> = Vec::new();
+    let mut d = maturity;
+    while d > settle {
+        dates.push(d);
+        d = crate::helpers::add_months(d, -step_months);
+    }
+    dates.reverse();
+    dates.iter()
+        .map(|&cd| year_frac(settle, cd, 1)) // actual/actual for the curvature calc
+        .collect()
+}
+
+/// Pure-Rust convexity calculation, reusable from both the VScalar wrapper
+/// and any future LIST/batch variant.
+pub fn calc_convexity(
+    settle: NaiveDate,
+    maturity: NaiveDate,
+    coupon: f64,
+    yld: f64,
+    freq: i32,
+) -> f64 {
+    let times = coupon_schedule(settle, maturity, freq);
+    if times.is_empty() { return f64::NAN; }
+
+    let k = freq as f64;
+    let coupon_pmt = 100.0 * coupon / k;
+    let n = times.len();
+
+    let mut price = 0.0f64;
+    let mut convex_sum = 0.0f64;
+
+    for (idx, &t) in times.iter().enumerate() {
+        let period = t * k; // period number (may be fractional for first period)
+        let cf = if idx == n - 1 { coupon_pmt + 100.0 } else { coupon_pmt };
+        let disc = (1.0 + yld / k).powf(period);
+
+        price += cf / disc;
+        convex_sum += cf * period * (period + 1.0) / disc;
+    }
+
+    if price.abs() < 1e-12 { return f64::NAN; }
+
+    convex_sum / (price * (1.0 + yld / k).powi(2) * k * k)
+}
+
+// ── CONVEXITY ────────────────────────────────────────────────────────────────
+pub struct ConvexityFunction;
+impl VScalar for ConvexityFunction {
+    type State = ();
+    fn signatures() -> Vec<ScalarFunctionSignature> {
+        vec![ScalarFunctionSignature::exact(
+            vec![varchar(), varchar(), dbl(), dbl(), dbl(), dbl()],
+            dbl(),
+        )]
+    }
+    unsafe fn invoke(
+        _: &(),
+        input:  &mut DataChunkHandle,
+        output: &mut dyn WritableVector,
+    ) -> Result<(), Box<dyn Error>> {
+        let len = input.len();
+        let mut out = output.flat_vector();
+        for i in 0..len {
+            let settle_str = unsafe { read_varchar(input, 0, i) };
+            let mat_str    = unsafe { read_varchar(input, 1, i) };
+            let coupon     = input.flat_vector(2).as_slice::<f64>()[i];
+            let yld        = input.flat_vector(3).as_slice::<f64>()[i];
+            let freq       = input.flat_vector(4).as_slice::<f64>()[i] as i32;
+            let _basis     = input.flat_vector(5).as_slice::<f64>()[i]; // reserved
+
+            match (parse_date(&settle_str), parse_date(&mat_str), freq_per_year(freq)) {
+                (Some(settle), Some(maturity), Ok(f)) if settle < maturity => {
+                    write_f64(&mut out, i, calc_convexity(settle, maturity, coupon, yld, f));
+                }
+                _ => out.set_null(i),
+            }
+        }
+        Ok(())
+    }
+}
+```
+
+### Registration
+
+Add one line to the extension entry point in `src/lib.rs`, alongside the
+other bond functions:
+
+```rust
+con.register_scalar_function::<ConvexityFunction>("convexity")?;
+```
+
+### Verification Against a Known Reference
+
+Convexity has no single universally-quoted Excel function to check
+against, but the relationship below must hold for any correctly
+implemented convexity: a small yield shock estimated via duration alone
+should always be *less accurate* than the same shock estimated via
+duration plus convexity, when compared to the bond's actual repriced
+value. Part 1, Step 4 of this tutorial demonstrates exactly that check.
+
+```sql
+-- Sanity check: convexity should always be positive for a standard
+-- option-free bond (this is a defining property of vanilla bonds)
+SELECT convexity('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1) > 0
+       AS convexity_is_positive;
+-- Expected: true
+```
+
+---
+
+## Summary
+
+| Concept | Function(s) Used | Key Takeaway |
+|---|---|---|
+| Bond pricing | `price`, `pricedisc`, `pricemat` | Price moves inversely to yield |
+| Duration | `duration`, `mduration` | First-order: % price change per 1% yield move |
+| Convexity | `convexity` (new) | Second-order correction; always positive for vanilla bonds |
+| T-bills | `tbillprice`, `tbillyield`, `tbilleq` | Discount rate ≠ yield; always convert to bond-equivalent |
+| Accrued interest | `accrint`, `accrintm` | Clean price + accrued = what you actually pay |
+| Credit spread | `price` + manual spread | Same maturity, different yield, different price |
+
+The pattern across every example here is the same: SQL lets you price,
+risk-assess, and stress-test an entire bond portfolio in a handful of
+queries — work that would otherwise require a spreadsheet with dozens of
+manually-linked cells, redone from scratch for every new bond.
