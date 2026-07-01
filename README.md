@@ -42,14 +42,15 @@ This tutorial walks through building a **DuckDB community extension in Rust** th
 
 The 56 functions are organised into six groups:
 
-| Group                  | Functions                                                                                                                                                                |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Annuity**            | `fv`, `pv`, `pmt`, `ipmt`, `ppmt`, `cumipmt`, `cumprinc`, `nper`, `rate`, `ispmt`                                                                                        |
-| **Cash Flows**         | `npv`, `xnpv`, `irr`, `xirr`, `mirr`                                                                                                                                     |
-| **Depreciation**       | `sln`, `syd`, `db`, `ddb`, `vdb`, `amorlinc`, `amordegrc`                                                                                                                |
-| **Coupon Dates**       | `coupdaybs`, `coupdays`, `coupdaysnc`, `coupncd`, `couppcd`, `coupnum`                                                                                                   |
-| **Bonds & Securities** | `price`, `pricedisc`, `pricemat`, `yield`, `yielddisc`, `yieldmat`, `disc`, `intrate`, `received`, `duration`, `mduration`, `accrint`, `accrintm`                        |
-| **Miscellaneous**      | `effect`, `nominal`, `dollarde`, `dollarfr`, `fvschedule`, `rri`, `pduration`, `tbillprice`, `tbillyield`, `tbilleq`, `oddfprice`, `oddfyield`, `oddlprice`, `oddlyield` |
+| Group                  | Functions                                                                                                                                                      |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Annuity**            | `fv`, `pv`, `pmt`, `ipmt`, `ppmt`, `cumipmt`, `cumprinc`, `nper`, `rate`, `ispmt`                                                                              |
+| **Cash Flows**         | `npv`, `xnpv`, `irr`, `xirr`, `mirr`                                                                                                                           |
+| **Depreciation**       | `sln`, `syd`, `db`, `ddb`, `vdb`, `amorlinc`, `amordegrc`                                                                                                      |
+| **Coupon Dates**       | `coupdaybs`, `coupdays`, `coupdaysnc`, `coupncd`, `couppcd`, `coupnum`                                                                                         |
+| **Bonds & Securities** | `price`, `pricedisc`, `pricemat`, `yield`, `yielddisc`, `yieldmat`, `disc`, `intrate`, `received`, `duration`, `mduration`, `accrint`, `accrintm`, `convexity` |
+
+| **Miscellaneous** | `effect`, `nominal`, `dollarde`, `dollarfr`, `fvschedule`, `rri`, `pduration`, `tbillprice`, `tbillyield`, `tbilleq`, `oddfprice`, `oddfyield`, `oddlprice`, `oddlyield` |
 
 ---
 

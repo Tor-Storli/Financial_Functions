@@ -1,6 +1,6 @@
 ---
 title: "Building a DuckDB Financial Extension in Rust"
-subtitle: "Implementing All 55 Excel-Compatible Financial Functions"
+subtitle: "Implementing All 56 Excel-Compatible Financial Functions"
 author: "Tor Storli and <br> Claude Sonnet 4.6 (Anthropic's AI assistant)"
 date: today
 format:
@@ -22,17 +22,17 @@ execute:
 
 # Overview
 
-This tutorial walks through building a **DuckDB community extension in Rust** that exposes 55 Excel-compatible financial functions directly inside DuckDB SQL queries. By the end you will understand:
+This tutorial walks through building a **DuckDB community extension in Rust** that exposes 56 Excel-compatible financial functions directly inside DuckDB SQL queries. By the end you will understand:
 
 - How the DuckDB `VScalar` trait works in Rust
 - How the `financial` crate implements Excel financial formulas
 - How to organise a multi-module Rust extension
 - How to register scalar functions in a loadable DuckDB extension
-- How to use all 55 functions in real SQL queries
+- How to use all 56 functions in real SQL queries
 
 ## What We Are Building
 
-The 55 functions are organised into six groups:
+The 56 functions are organised into six groups:
 
 | Group | Functions |
 |---|---|
@@ -40,7 +40,7 @@ The 55 functions are organised into six groups:
 | **Cash Flows** | `npv`, `xnpv`, `irr`, `xirr`, `mirr` |
 | **Depreciation** | `sln`, `syd`, `db`, `ddb`, `vdb`, `amorlinc`, `amordegrc` |
 | **Coupon Dates** | `coupdaybs`, `coupdays`, `coupdaysnc`, `coupncd`, `couppcd`, `coupnum` |
-| **Bonds & Securities** | `price`, `pricedisc`, `pricemat`, `yield`, `yielddisc`, `yieldmat`, `disc`, `intrate`, `received`, `duration`, `mduration`, `accrint`, `accrintm` |
+| **Bonds & Securities** | `price`, `pricedisc`, `pricemat`, `yield`, `yielddisc`, `yieldmat`, `disc`, `intrate`, `received`, `duration`, `mduration`, `accrint`, `accrintm`, `convexity` |
 | **Miscellaneous** | `effect`, `nominal`, `dollarde`, `dollarfr`, `fvschedule`, `rri`, `pduration`, `tbillprice`, `tbillyield`, `tbilleq`, `oddfprice`, `oddfyield`, `oddlprice`, `oddlyield` |
 
 ---
@@ -64,14 +64,14 @@ As the number of functions grows, splitting into modules keeps the code maintain
 Financial_Functions/
 ├── Cargo.toml
 └── src/
-    ├── lib.rs           ← registers all 55 functions, nothing else
+    ├── lib.rs           ← registers all 56 functions, nothing else
     ├── helpers.rs       ← read_varchar, parse_csv_f64, year_frac, day-count conventions
     ├── annuity.rs       ← FV, PV, PMT, IPMT, PPMT, CUMIPMT, CUMPRINC, NPER, RATE, ISPMT
     ├── cash_flows.rs    ← NPV, IRR, MIRR, XNPV, XIRR
     ├── depreciation.rs  ← SLN, SYD, DB, DDB, VDB, AMORDEGRC, AMORLINC
     ├── coupons.rs       ← COUPDAYBS, COUPDAYS, COUPDAYSNC, COUPNCD, COUPPCD, COUPNUM
     ├── bonds.rs         ← PRICE, PRICEDISC, PRICEMAT, YIELD, YIELDDISC, YIELDMAT,
-    │                       DISC, INTRATE, RECEIVED, DURATION, MDURATION, ACCRINT, ACCRINTM
+    │                       DISC, INTRATE, RECEIVED, DURATION, MDURATION, ACCRINT, ACCRINTM,  CONVEXITY
     └── misc.rs          ← EFFECT, NOMINAL, DOLLARDE, DOLLARFR, FVSCHEDULE, RRI, PDURATION,
                             TBILLEQ, TBILLPRICE, TBILLYIELD, ODDFPRICE, ODDFYIELD, ODDLPRICE, ODDLYIELD
 ```
@@ -1212,6 +1212,36 @@ SELECT ROUND(mduration('2008-01-01', '2016-01-01', 0.08, 0.09, 2, 1), 4) AS mdur
 -- Result: 5.7355
 ```
 
+## CONVEXITY — Bond Convexity
+
+**DuckDB signature:** `convexity(settlement, maturity, coupon, yld, frequency, basis)`
+
+Measures the curvature of the price/yield relationship — the second-order
+correction that makes price estimates more accurate than duration alone.
+Always positive for a standard option-free bond. Higher convexity means
+the bond gains more when yields fall and loses less when yields rise.
+
+```sql
+-- Convexity of a 10-year 4.375% bond at 4.37% yield
+SELECT ROUND(convexity('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1), 4) AS convexity_result;
+-- Result: 76.9003
+
+-- Duration + convexity gives a better price estimate than duration alone
+WITH base AS (
+    SELECT
+        price('2026-06-30', '2036-06-30', 0.04375, 0.0437, 100, 2, 1)  AS p0,
+        mduration('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1)   AS mdur,
+        convexity('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1)   AS conv,
+        0.0050 AS dy
+)
+SELECT
+    ROUND(-mdur * dy * p0, 4)                                AS duration_only,
+    ROUND((-mdur * dy + 0.5 * conv * dy * dy) * p0, 4)      AS duration_plus_convexity,
+    ROUND(price('2026-06-30','2036-06-30',0.04375,0.0487,100,2,1) - p0, 4) AS actual_change
+FROM base;
+-- duration_only: -4.0017  | duration_plus_convexity: -3.9035 | actual_change: -3.9400
+```
+
 ## ACCRINT — Accrued Interest (Periodic Coupon)
 
 **DuckDB signature:** `accrint(issue, first_interest, settlement, rate, par, frequency, basis)`
@@ -1430,7 +1460,7 @@ SELECT ROUND(oddlyield(
 
 # Extension Entry Point
 
-All 55 functions are registered in a single entry point:
+All 56 functions are registered in a single entry point:
 
 ```rust
 #[duckdb_entrypoint_c_api]
@@ -1479,6 +1509,7 @@ pub unsafe fn extension_entrypoint(con: Connection) -> Result<(), Box<dyn Error>
     con.register_scalar_function::<ReceivedFunction>("received")?;
     con.register_scalar_function::<DurationFunction>("duration")?;
     con.register_scalar_function::<MdurationFunction>("mduration")?;
+    con.register_scalar_function::<ConvexityFunction>("convexity")?;
     con.register_scalar_function::<AccrintFunction>("accrint")?;
     con.register_scalar_function::<AccrintmFunction>("accrintm")?;
     // Misc (14)
@@ -1515,7 +1546,7 @@ The function name `extension_entrypoint` does not matter — the macro renames t
 LOAD '<your Extension path>/fin_functions.duckdb_extension';
 -- LOAD 'C:/Users/storl/Desktop/Financial_Functions/fin_functions.duckdb_extension';
 
--- Verify all 55 functions loaded
+-- Verify all 56 functions loaded
 SELECT COUNT(*) AS loaded
 FROM duckdb_functions()
 WHERE function_name IN (
@@ -1524,12 +1555,12 @@ WHERE function_name IN (
     'sln','syd','db','ddb','vdb','amorlinc','amordegrc',
     'coupdaybs','coupdays','coupdaysnc','coupncd','couppcd','coupnum',
     'price','pricedisc','pricemat','yield','yielddisc','yieldmat',
-    'disc','intrate','received','duration','mduration','accrint','accrintm',
+    'disc','intrate','received','duration','mduration', 'convexity', 'accrint','accrintm',
     'effect','nominal','dollarde','dollarfr','fvschedule','rri','pduration',
     'tbillprice','tbillyield','tbilleq',
     'oddfprice','oddfyield','oddlprice','oddlyield'
 );
--- Expected: 55
+-- Expected: 56
 ```
 
 ---
