@@ -8,7 +8,7 @@ jobs:
     name: Build extension binaries
     uses: duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@main
     with:
-      duckdb_version: v1.5.2
+      duckdb_version: v1.5.4
       ci_tools_version: main
       extension_name: financial_functions
       extra_toolchains: "rust;python3"
@@ -27,19 +27,19 @@ jobs:
       - name: Download windows artifact
         uses: actions/download-artifact@v4
         with:
-          name: financial_functions-v1.5.2-extension-windows_amd64
+          name: financial_functions-v1.5.4-extension-windows_amd64
           path: artifacts/windows_amd64/
 
       - name: Download macOS Intel artifact
         uses: actions/download-artifact@v4
         with:
-          name: financial_functions-v1.5.2-extension-osx_amd64
+          name: financial_functions-v1.5.4-extension-osx_amd64
           path: artifacts/osx_amd64/
 
       - name: Download macOS ARM artifact
         uses: actions/download-artifact@v4
         with:
-          name: financial_functions-v1.5.2-extension-osx_arm64
+          name: financial_functions-v1.5.4-extension-osx_arm64
           path: artifacts/osx_arm64/
 
       - name: Rename files clearly
@@ -56,7 +56,7 @@ jobs:
         with:
           name: financial_functions ${{ github.ref_name }}
           body: |
-            Excel-compatible financial functions for DuckDB v1.5.2
+            Excel-compatible financial functions for DuckDB v1.5.4
 
             Download the file matching your computer and unzip it.
             Then open DuckDB with: duckdb -unsigned

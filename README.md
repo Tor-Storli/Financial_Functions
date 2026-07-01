@@ -94,10 +94,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-duckdb = { version = "1.10501.0", features = ["vtab-loadable", "vscalar"] }
+duckdb = { version = "1.10504.0", features = ["vtab-loadable", "vscalar"] }
 duckdb-ext-macros = "0.1.0"
-duckdb-loadable-macros = "1.10501.0"
-libduckdb-sys = { version = "1.10501.0", features = ["loadable-extension"] }
+duckdb-loadable-macros = "1.10504.0"
+libduckdb-sys = { version = "1.10504.0", features = ["loadable-extension"] }
 financial = "1.1.5"
 chrono = "0.4"
 
@@ -110,7 +110,7 @@ strip = true
 ```
 
 ::: {.callout-note}
-The `duckdb-rs` crate encodes the DuckDB version in its semver string. Version `1.10501.0` corresponds to **DuckDB v1.5.1**. Always keep `duckdb`, `duckdb-loadable-macros`, and `libduckdb-sys` on the same version.  
+The `duckdb-rs` crate encodes the DuckDB version in its semver string. Version `1.10504.0` corresponds to **DuckDB v1.5.4**. Always keep `duckdb`, `duckdb-loadable-macros`, and `libduckdb-sys` on the same version.  
 [duckdb Rust Crate](https://lib.rs/crates/duckdb){target="\_blank"}  
 [duckdb-ext-macros Rust Crate](https://crates.io/crates/duckdb-ext-macros){target="\_blank"}  
 [duckdb-loadable-macros Rust Crate](https://crates.io/crates/duckdb-loadable-macros){target="\_blank"}  
@@ -197,7 +197,7 @@ cargo build --release
 
 # Package as a DuckDB extension file using latest
 # version of Duckdb 1.5.2
-cargo duckdb-ext build --duckdb-version v1.5.2 -- --release
+cargo duckdb-ext build --duckdb-version v1.5.4 -- --release
 ```
 
 This produces `target/release/fin_functions.duckdb_extension`.
@@ -1587,7 +1587,7 @@ WHERE function_name IN (
 
 4. **Rust 2024 edition** — explicit `unsafe {}` blocks are required inside `unsafe fn`. This catches unsafe calls that were previously implicit.
 
-5. **Version pinning** — `duckdb`, `duckdb-loadable-macros`, and `libduckdb-sys` must all be on the **same version string**. The version encodes the DuckDB release: `1.10501.0` = DuckDB v1.5.1.
+5. **Version pinning** — `duckdb`, `duckdb-loadable-macros`, and `libduckdb-sys` must all be on the **same version string**. The version encodes the DuckDB release: `1.10504.0` = DuckDB v1.5.4.
 
 6. **Day-count conventions** — bond and coupon functions share a central `year_frac(d1, d2, basis)` helper. Centralising it prevents subtle per-function inconsistencies.
 
