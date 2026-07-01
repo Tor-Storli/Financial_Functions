@@ -1,6 +1,6 @@
 ---
 title: "Building a DuckDB Financial Extension in Rust"
-subtitle: "Implementing All 55 Excel-Compatible Financial Functions"
+subtitle: "Implementing All 56 Excel-Compatible Financial Functions"
 author: "Tor Storli and  Claude Sonnet 4.6 (Anthropic's AI assistant)"
 date: today
 format:
@@ -30,13 +30,13 @@ execute:
 
 # Overview
 
-This tutorial walks through building a **DuckDB community extension in Rust** that exposes 55 Excel-compatible financial functions directly inside DuckDB SQL queries. By the end you will understand:
+This tutorial walks through building a **DuckDB community extension in Rust** that exposes 56 Excel-compatible financial functions directly inside DuckDB SQL queries. By the end you will understand:
 
 - How the DuckDB `VScalar` trait works in Rust
 - How the `financial` crate implements Excel financial formulas
 - How to organise a multi-module Rust extension
 - How to register scalar functions in a loadable DuckDB extension
-- How to use all 55 functions in real SQL queries
+- How to use all 56 functions in real SQL queries
 
 ## What We Are Building
 
@@ -74,7 +74,7 @@ As the number of functions grows, splitting into modules keeps the code maintain
 Financial_Functions/
 ├── Cargo.toml
 └── src/
-    ├── lib.rs           ← registers all 55 functions, nothing else
+    ├── lib.rs           ← registers all 56 functions, nothing else
     ├── helpers.rs       ← read_varchar, parse_csv_f64, year_frac, day-count conventions
     ├── annuity.rs       ← FV, PV, PMT, IPMT, PPMT, CUMIPMT, CUMPRINC, NPER, RATE, ISPMT
     ├── cash_flows.rs    ← NPV, IRR, MIRR, XNPV, XIRR
