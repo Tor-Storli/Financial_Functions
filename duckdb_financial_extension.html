@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Tor Storli and   Claude Sonnet 4.6 (Anthropic’s AI assistant)">
-<meta name="dcterms.date" content="2026-04-27">
+<meta name="dcterms.date" content="2026-07-01">
 
 <title>Building a DuckDB Financial Extension in Rust</title>
 <style>
@@ -2456,6 +2456,7 @@ window.Quarto = {
   <li><a href="#received-amount-received-at-maturity" id="toc-received-amount-received-at-maturity" class="nav-link" data-scroll-target="#received-amount-received-at-maturity">RECEIVED — Amount Received at Maturity</a></li>
   <li><a href="#duration-macaulay-duration" id="toc-duration-macaulay-duration" class="nav-link" data-scroll-target="#duration-macaulay-duration">DURATION — Macaulay Duration</a></li>
   <li><a href="#mduration-modified-duration" id="toc-mduration-modified-duration" class="nav-link" data-scroll-target="#mduration-modified-duration">MDURATION — Modified Duration</a></li>
+  <li><a href="#convexity-bond-convexity" id="toc-convexity-bond-convexity" class="nav-link" data-scroll-target="#convexity-bond-convexity">CONVEXITY — Bond Convexity</a></li>
   <li><a href="#accrint-accrued-interest-periodic-coupon" id="toc-accrint-accrued-interest-periodic-coupon" class="nav-link" data-scroll-target="#accrint-accrued-interest-periodic-coupon">ACCRINT — Accrued Interest (Periodic Coupon)</a></li>
   <li><a href="#accrintm-accrued-interest-maturity" id="toc-accrintm-accrued-interest-maturity" class="nav-link" data-scroll-target="#accrintm-accrued-interest-maturity">ACCRINTM — Accrued Interest (Maturity)</a></li>
   </ul></li>
@@ -2487,7 +2488,7 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
 <h1 class="title">Building a DuckDB Financial Extension in Rust</h1>
-<p class="subtitle lead">Implementing All 55 Excel-Compatible Financial Functions</p>
+<p class="subtitle lead">Implementing All 56 Excel-Compatible Financial Functions</p>
 </div>
 
 
@@ -2504,7 +2505,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">April 27, 2026</p>
+      <p class="date">July 1, 2026</p>
     </div>
   </div>
   
@@ -2518,17 +2519,17 @@ window.Quarto = {
 
 <section id="overview" class="level1">
 <h1>Overview</h1>
-<p>This tutorial walks through building a <strong>DuckDB community extension in Rust</strong> that exposes 55 Excel-compatible financial functions directly inside DuckDB SQL queries. By the end you will understand:</p>
+<p>This tutorial walks through building a <strong>DuckDB community extension in Rust</strong> that exposes 56 Excel-compatible financial functions directly inside DuckDB SQL queries. By the end you will understand:</p>
 <ul>
 <li>How the DuckDB <code>VScalar</code> trait works in Rust</li>
 <li>How the <code>financial</code> crate implements Excel financial formulas</li>
 <li>How to organise a multi-module Rust extension</li>
 <li>How to register scalar functions in a loadable DuckDB extension</li>
-<li>How to use all 55 functions in real SQL queries</li>
+<li>How to use all 56 functions in real SQL queries</li>
 </ul>
 <section id="what-we-are-building" class="level2">
 <h2 class="anchored" data-anchor-id="what-we-are-building">What We Are Building</h2>
-<p>The 55 functions are organised into six groups:</p>
+<p>The 56 functions are organised into six groups:</p>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 50%">
@@ -2559,7 +2560,7 @@ window.Quarto = {
 </tr>
 <tr class="odd">
 <td><strong>Bonds &amp; Securities</strong></td>
-<td><code>price</code>, <code>pricedisc</code>, <code>pricemat</code>, <code>yield</code>, <code>yielddisc</code>, <code>yieldmat</code>, <code>disc</code>, <code>intrate</code>, <code>received</code>, <code>duration</code>, <code>mduration</code>, <code>accrint</code>, <code>accrintm</code></td>
+<td><code>price</code>, <code>pricedisc</code>, <code>pricemat</code>, <code>yield</code>, <code>yielddisc</code>, <code>yieldmat</code>, <code>disc</code>, <code>intrate</code>, <code>received</code>, <code>duration</code>, <code>mduration</code>, <code>accrint</code>, <code>accrintm</code>, <code>convexity</code></td>
 </tr>
 <tr class="even">
 <td><strong>Miscellaneous</strong></td>
@@ -2594,14 +2595,14 @@ window.Quarto = {
 <pre><code>Financial_Functions/
 ├── Cargo.toml
 └── src/
-    ├── lib.rs           ← registers all 55 functions, nothing else
+    ├── lib.rs           ← registers all 56 functions, nothing else
     ├── helpers.rs       ← read_varchar, parse_csv_f64, year_frac, day-count conventions
     ├── annuity.rs       ← FV, PV, PMT, IPMT, PPMT, CUMIPMT, CUMPRINC, NPER, RATE, ISPMT
     ├── cash_flows.rs    ← NPV, IRR, MIRR, XNPV, XIRR
     ├── depreciation.rs  ← SLN, SYD, DB, DDB, VDB, AMORDEGRC, AMORLINC
     ├── coupons.rs       ← COUPDAYBS, COUPDAYS, COUPDAYSNC, COUPNCD, COUPPCD, COUPNUM
     ├── bonds.rs         ← PRICE, PRICEDISC, PRICEMAT, YIELD, YIELDDISC, YIELDMAT,
-    │                       DISC, INTRATE, RECEIVED, DURATION, MDURATION, ACCRINT, ACCRINTM
+    │                       DISC, INTRATE, RECEIVED, DURATION, MDURATION, ACCRINT, ACCRINTM,  CONVEXITY
     └── misc.rs          ← EFFECT, NOMINAL, DOLLARDE, DOLLARFR, FVSCHEDULE, RRI, PDURATION,
                             TBILLEQ, TBILLPRICE, TBILLYIELD, ODDFPRICE, ODDFYIELD, ODDLPRICE, ODDLYIELD</code></pre>
 </section>
@@ -2613,10 +2614,10 @@ window.Quarto = {
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">edition</span> <span class="op">=</span> <span class="st">&quot;2024&quot;</span></span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">[dependencies]</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="dt">duckdb</span> <span class="op">=</span> <span class="op">{ </span><span class="dt">version</span><span class="op"> =</span> <span class="st">&quot;1.10501.0&quot;</span><span class="op">, </span><span class="dt">features</span><span class="op"> =</span> <span class="op">[</span><span class="st">&quot;vtab-loadable&quot;</span><span class="op">,</span> <span class="st">&quot;vscalar&quot;</span><span class="op">] }</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="dt">duckdb</span> <span class="op">=</span> <span class="op">{ </span><span class="dt">version</span><span class="op"> =</span> <span class="st">&quot;1.10502.0&quot;</span><span class="op">, </span><span class="dt">features</span><span class="op"> =</span> <span class="op">[</span><span class="st">&quot;vtab-loadable&quot;</span><span class="op">,</span> <span class="st">&quot;vscalar&quot;</span><span class="op">] }</span></span>
 <span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="dt">duckdb-ext-macros</span> <span class="op">=</span> <span class="st">&quot;0.1.0&quot;</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="dt">duckdb-loadable-macros</span> <span class="op">=</span> <span class="st">&quot;1.10501.0&quot;</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="dt">libduckdb-sys</span> <span class="op">=</span> <span class="op">{ </span><span class="dt">version</span><span class="op"> =</span> <span class="st">&quot;1.10501.0&quot;</span><span class="op">, </span><span class="dt">features</span><span class="op"> =</span> <span class="op">[</span><span class="st">&quot;loadable-extension&quot;</span><span class="op">] }</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="dt">duckdb-loadable-macros</span> <span class="op">=</span> <span class="st">&quot;1.10502.0&quot;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="dt">libduckdb-sys</span> <span class="op">=</span> <span class="op">{ </span><span class="dt">version</span><span class="op"> =</span> <span class="st">&quot;1.10502.0&quot;</span><span class="op">, </span><span class="dt">features</span><span class="op"> =</span> <span class="op">[</span><span class="st">&quot;loadable-extension&quot;</span><span class="op">] }</span></span>
 <span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="dt">financial</span> <span class="op">=</span> <span class="st">&quot;1.1.5&quot;</span></span>
 <span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="dt">chrono</span> <span class="op">=</span> <span class="st">&quot;0.4&quot;</span></span>
 <span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
@@ -2636,7 +2637,7 @@ Note
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>The <code>duckdb-rs</code> crate encodes the DuckDB version in its semver string. Version <code>1.10501.0</code> corresponds to <strong>DuckDB v1.5.1</strong>. Always keep <code>duckdb</code>, <code>duckdb-loadable-macros</code>, and <code>libduckdb-sys</code> on the same version.<br>
+<p>The <code>duckdb-rs</code> crate encodes the DuckDB version in its semver string. Version <code>1.10502.0</code> corresponds to <strong>DuckDB v1.5.2</strong>. Always keep <code>duckdb</code>, <code>duckdb-loadable-macros</code>, and <code>libduckdb-sys</code> on the same version.<br>
 <a href="https://lib.rs/crates/duckdb" target="_blank">duckdb Rust Crate</a><br>
 <a href="https://crates.io/crates/duckdb-ext-macros" target="_blank">duckdb-ext-macros Rust Crate</a><br>
 <a href="https://crates.io/crates/duckdb-loadable-macros" target="_blank">duckdb-loadable-macros Rust Crate</a><br>
@@ -3938,19 +3939,42 @@ panic in a function that cannot unwind</code></pre>
 <span id="cb64-2"><a href="#cb64-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(mduration(<span class="st">&#39;2008-01-01&#39;</span>, <span class="st">&#39;2016-01-01&#39;</span>, <span class="fl">0.08</span>, <span class="fl">0.09</span>, <span class="dv">2</span>, <span class="dv">1</span>), <span class="dv">4</span>) <span class="kw">AS</span> mduration_result;</span>
 <span id="cb64-3"><a href="#cb64-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 5.7355</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
+<section id="convexity-bond-convexity" class="level2">
+<h2 class="anchored" data-anchor-id="convexity-bond-convexity">CONVEXITY — Bond Convexity</h2>
+<p><strong>DuckDB signature:</strong> <code>convexity(settlement, maturity, coupon, yld, frequency, basis)</code></p>
+<p>Measures the curvature of the price/yield relationship — the second-order correction that makes price estimates more accurate than duration alone. Always positive for a standard option-free bond. Higher convexity means the bond gains more when yields fall and loses less when yields rise.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb65"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb65-1"><a href="#cb65-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Convexity of a 10-year 4.375% bond at 4.37% yield</span></span>
+<span id="cb65-2"><a href="#cb65-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(convexity(<span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2036-06-30&#39;</span>, <span class="fl">0.04375</span>, <span class="fl">0.0437</span>, <span class="dv">2</span>, <span class="dv">1</span>), <span class="dv">4</span>) <span class="kw">AS</span> convexity_result;</span>
+<span id="cb65-3"><a href="#cb65-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 76.9003</span></span>
+<span id="cb65-4"><a href="#cb65-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb65-5"><a href="#cb65-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Duration + convexity gives a better price estimate than duration alone</span></span>
+<span id="cb65-6"><a href="#cb65-6" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> base <span class="kw">AS</span> (</span>
+<span id="cb65-7"><a href="#cb65-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span></span>
+<span id="cb65-8"><a href="#cb65-8" aria-hidden="true" tabindex="-1"></a>        price(<span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2036-06-30&#39;</span>, <span class="fl">0.04375</span>, <span class="fl">0.0437</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">1</span>)  <span class="kw">AS</span> p0,</span>
+<span id="cb65-9"><a href="#cb65-9" aria-hidden="true" tabindex="-1"></a>        mduration(<span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2036-06-30&#39;</span>, <span class="fl">0.04375</span>, <span class="fl">0.0437</span>, <span class="dv">2</span>, <span class="dv">1</span>)   <span class="kw">AS</span> mdur,</span>
+<span id="cb65-10"><a href="#cb65-10" aria-hidden="true" tabindex="-1"></a>        convexity(<span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2036-06-30&#39;</span>, <span class="fl">0.04375</span>, <span class="fl">0.0437</span>, <span class="dv">2</span>, <span class="dv">1</span>)   <span class="kw">AS</span> conv,</span>
+<span id="cb65-11"><a href="#cb65-11" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0.0050</span> <span class="kw">AS</span> dy</span>
+<span id="cb65-12"><a href="#cb65-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb65-13"><a href="#cb65-13" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb65-14"><a href="#cb65-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(<span class="op">-</span>mdur <span class="op">*</span> dy <span class="op">*</span> p0, <span class="dv">4</span>)                                <span class="kw">AS</span> duration_only,</span>
+<span id="cb65-15"><a href="#cb65-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>((<span class="op">-</span>mdur <span class="op">*</span> dy <span class="op">+</span> <span class="fl">0.5</span> <span class="op">*</span> conv <span class="op">*</span> dy <span class="op">*</span> dy) <span class="op">*</span> p0, <span class="dv">4</span>)      <span class="kw">AS</span> duration_plus_convexity,</span>
+<span id="cb65-16"><a href="#cb65-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(price(<span class="st">&#39;2026-06-30&#39;</span>,<span class="st">&#39;2036-06-30&#39;</span>,<span class="fl">0.04375</span>,<span class="fl">0.0487</span>,<span class="dv">100</span>,<span class="dv">2</span>,<span class="dv">1</span>) <span class="op">-</span> p0, <span class="dv">4</span>) <span class="kw">AS</span> actual_change</span>
+<span id="cb65-17"><a href="#cb65-17" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> base;</span>
+<span id="cb65-18"><a href="#cb65-18" aria-hidden="true" tabindex="-1"></a><span class="co">-- duration_only: -4.0017  | duration_plus_convexity: -3.9035 | actual_change: -3.9400</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
 <section id="accrint-accrued-interest-periodic-coupon" class="level2">
 <h2 class="anchored" data-anchor-id="accrint-accrued-interest-periodic-coupon">ACCRINT — Accrued Interest (Periodic Coupon)</h2>
 <p><strong>DuckDB signature:</strong> <code>accrint(issue, first_interest, settlement, rate, par, frequency, basis)</code></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb65"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb65-1"><a href="#cb65-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: ACCRINT(2008-03-01, 2008-08-31, 2008-05-01, 10%, 1000, 2, 0) = 16.94</span></span>
-<span id="cb65-2"><a href="#cb65-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(accrint(<span class="st">&#39;2008-03-01&#39;</span>, <span class="st">&#39;2008-08-31&#39;</span>, <span class="st">&#39;2008-05-01&#39;</span>, <span class="fl">0.10</span>, <span class="dv">1000</span>, <span class="dv">2</span>, <span class="dv">0</span>), <span class="dv">2</span>) <span class="kw">AS</span> accrint_result;</span>
-<span id="cb65-3"><a href="#cb65-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 16.94</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb66"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: ACCRINT(2008-03-01, 2008-08-31, 2008-05-01, 10%, 1000, 2, 0) = 16.94</span></span>
+<span id="cb66-2"><a href="#cb66-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(accrint(<span class="st">&#39;2008-03-01&#39;</span>, <span class="st">&#39;2008-08-31&#39;</span>, <span class="st">&#39;2008-05-01&#39;</span>, <span class="fl">0.10</span>, <span class="dv">1000</span>, <span class="dv">2</span>, <span class="dv">0</span>), <span class="dv">2</span>) <span class="kw">AS</span> accrint_result;</span>
+<span id="cb66-3"><a href="#cb66-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 16.94</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="accrintm-accrued-interest-maturity" class="level2">
 <h2 class="anchored" data-anchor-id="accrintm-accrued-interest-maturity">ACCRINTM — Accrued Interest (Maturity)</h2>
 <p><strong>DuckDB signature:</strong> <code>accrintm(issue, settlement, rate, par, basis)</code></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb66"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: ACCRINTM(2008-04-01, 2008-06-15, 10%, 1000, 3) = 20.54</span></span>
-<span id="cb66-2"><a href="#cb66-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(accrintm(<span class="st">&#39;2008-04-01&#39;</span>, <span class="st">&#39;2008-06-15&#39;</span>, <span class="fl">0.10</span>, <span class="dv">1000</span>, <span class="dv">3</span>), <span class="dv">2</span>) <span class="kw">AS</span> accrintm_result;</span>
-<span id="cb66-3"><a href="#cb66-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 20.54</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb67"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: ACCRINTM(2008-04-01, 2008-06-15, 10%, 1000, 3) = 20.54</span></span>
+<span id="cb67-2"><a href="#cb67-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(accrintm(<span class="st">&#39;2008-04-01&#39;</span>, <span class="st">&#39;2008-06-15&#39;</span>, <span class="fl">0.10</span>, <span class="dv">1000</span>, <span class="dv">3</span>), <span class="dv">2</span>) <span class="kw">AS</span> accrintm_result;</span>
+<span id="cb67-3"><a href="#cb67-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 20.54</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
 </section>
@@ -3960,83 +3984,83 @@ panic in a function that cannot unwind</code></pre>
 <h2 class="anchored" data-anchor-id="effect-effective-annual-rate">EFFECT — Effective Annual Rate</h2>
 <p><strong>DuckDB signature:</strong> <code>effect(nominal_rate, npery)</code></p>
 <p>Converts a nominal rate to effective annual rate accounting for compounding.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb67"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: EFFECT(5.25%, 4) = 5.3543%</span></span>
-<span id="cb67-2"><a href="#cb67-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(effect(<span class="fl">0.0525</span>, <span class="dv">4</span>), <span class="dv">6</span>) <span class="kw">AS</span> effect_result;</span>
-<span id="cb67-3"><a href="#cb67-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.053543</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb68"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: EFFECT(5.25%, 4) = 5.3543%</span></span>
+<span id="cb68-2"><a href="#cb68-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(effect(<span class="fl">0.0525</span>, <span class="dv">4</span>), <span class="dv">6</span>) <span class="kw">AS</span> effect_result;</span>
+<span id="cb68-3"><a href="#cb68-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.053543</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="nominal-nominal-annual-rate" class="level2">
 <h2 class="anchored" data-anchor-id="nominal-nominal-annual-rate">NOMINAL — Nominal Annual Rate</h2>
 <p><strong>DuckDB signature:</strong> <code>nominal(effect_rate, npery)</code></p>
 <p>Inverse of EFFECT.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb68"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: NOMINAL(5.3543%, 4) = 5.25%</span></span>
-<span id="cb68-2"><a href="#cb68-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(nominal(<span class="fl">0.053543</span>, <span class="dv">4</span>), <span class="dv">4</span>) <span class="kw">AS</span> nominal_result;</span>
-<span id="cb68-3"><a href="#cb68-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.0525</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb69"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: NOMINAL(5.3543%, 4) = 5.25%</span></span>
+<span id="cb69-2"><a href="#cb69-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(nominal(<span class="fl">0.053543</span>, <span class="dv">4</span>), <span class="dv">4</span>) <span class="kw">AS</span> nominal_result;</span>
+<span id="cb69-3"><a href="#cb69-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.0525</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="dollarde-dollar-price-to-decimal" class="level2">
 <h2 class="anchored" data-anchor-id="dollarde-dollar-price-to-decimal">DOLLARDE — Dollar Price to Decimal</h2>
 <p><strong>DuckDB signature:</strong> <code>dollarde(fractional_dollar, fraction)</code></p>
 <p>Converts a price expressed as an integer plus a fraction (e.g. 1.02 meaning 1 + 2/16) to a decimal.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb69"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: DOLLARDE(1.02, 16) = 1.125  (1 + 2/16)</span></span>
-<span id="cb69-2"><a href="#cb69-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> dollarde(<span class="fl">1.02</span>, <span class="dv">16</span>) <span class="kw">AS</span> dollarde_result;</span>
-<span id="cb69-3"><a href="#cb69-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 1.125</span></span>
-<span id="cb69-4"><a href="#cb69-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb69-5"><a href="#cb69-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel Example: DOLLARDE(1.1, 32) = 1.3125  (1 + 10/32)</span></span>
-<span id="cb69-6"><a href="#cb69-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> dollarde(<span class="fl">1.1</span>, <span class="dv">32</span>) <span class="kw">AS</span> dollarde_result;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb70"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb70-1"><a href="#cb70-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: DOLLARDE(1.02, 16) = 1.125  (1 + 2/16)</span></span>
+<span id="cb70-2"><a href="#cb70-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> dollarde(<span class="fl">1.02</span>, <span class="dv">16</span>) <span class="kw">AS</span> dollarde_result;</span>
+<span id="cb70-3"><a href="#cb70-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 1.125</span></span>
+<span id="cb70-4"><a href="#cb70-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb70-5"><a href="#cb70-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel Example: DOLLARDE(1.1, 32) = 1.3125  (1 + 10/32)</span></span>
+<span id="cb70-6"><a href="#cb70-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> dollarde(<span class="fl">1.1</span>, <span class="dv">32</span>) <span class="kw">AS</span> dollarde_result;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="dollarfr-dollar-price-to-fraction" class="level2">
 <h2 class="anchored" data-anchor-id="dollarfr-dollar-price-to-fraction">DOLLARFR — Dollar Price to Fraction</h2>
 <p><strong>DuckDB signature:</strong> <code>dollarfr(decimal_dollar, fraction)</code></p>
 <p>Inverse of DOLLARDE.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb70"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb70-1"><a href="#cb70-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: DOLLARFR(1.125, 16) = 1.02</span></span>
-<span id="cb70-2"><a href="#cb70-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> dollarfr(<span class="fl">1.125</span>, <span class="dv">16</span>) <span class="kw">AS</span> dollarfr_result;</span>
-<span id="cb70-3"><a href="#cb70-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 1.02</span></span>
-<span id="cb70-4"><a href="#cb70-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb70-5"><a href="#cb70-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: DOLLARFR(1.125, 32) = 1.04</span></span>
-<span id="cb70-6"><a href="#cb70-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> dollarfr(<span class="fl">1.125</span>, <span class="dv">32</span>) <span class="kw">AS</span> dollarfr_result;</span>
-<span id="cb70-7"><a href="#cb70-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 1.04</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb71"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb71-1"><a href="#cb71-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: DOLLARFR(1.125, 16) = 1.02</span></span>
+<span id="cb71-2"><a href="#cb71-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> dollarfr(<span class="fl">1.125</span>, <span class="dv">16</span>) <span class="kw">AS</span> dollarfr_result;</span>
+<span id="cb71-3"><a href="#cb71-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 1.02</span></span>
+<span id="cb71-4"><a href="#cb71-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb71-5"><a href="#cb71-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: DOLLARFR(1.125, 32) = 1.04</span></span>
+<span id="cb71-6"><a href="#cb71-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> dollarfr(<span class="fl">1.125</span>, <span class="dv">32</span>) <span class="kw">AS</span> dollarfr_result;</span>
+<span id="cb71-7"><a href="#cb71-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 1.04</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="fvschedule-future-value-with-variable-rates" class="level2">
 <h2 class="anchored" data-anchor-id="fvschedule-future-value-with-variable-rates">FVSCHEDULE — Future Value with Variable Rates</h2>
 <p><strong>DuckDB signature:</strong> <code>fvschedule(principal, csv_rates)</code></p>
 <p>Applies a schedule of variable compound interest rates to a principal amount.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb71"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb71-1"><a href="#cb71-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: FVSCHEDULE(1, 9%, 11%, 10%) = 1.3309</span></span>
-<span id="cb71-2"><a href="#cb71-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(fvschedule(<span class="dv">1</span>, <span class="st">&#39;0.09,0.11,0.10&#39;</span>), <span class="dv">4</span>) <span class="kw">AS</span> fvschedule_result;</span>
-<span id="cb71-3"><a href="#cb71-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 1.3309</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb72"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb72-1"><a href="#cb72-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: FVSCHEDULE(1, 9%, 11%, 10%) = 1.3309</span></span>
+<span id="cb72-2"><a href="#cb72-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(fvschedule(<span class="dv">1</span>, <span class="st">&#39;0.09,0.11,0.10&#39;</span>), <span class="dv">4</span>) <span class="kw">AS</span> fvschedule_result;</span>
+<span id="cb72-3"><a href="#cb72-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 1.3309</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="rri-equivalent-interest-rate" class="level2">
 <h2 class="anchored" data-anchor-id="rri-equivalent-interest-rate">RRI — Equivalent Interest Rate</h2>
 <p><strong>DuckDB signature:</strong> <code>rri(nper, pv, fv)</code></p>
 <p>Returns the equivalent periodic interest rate for an investment growing from <code>pv</code> to <code>fv</code> over <code>nper</code> periods.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb72"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb72-1"><a href="#cb72-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: RRI(96, 10000, 11000) = 0.0988% per period</span></span>
-<span id="cb72-2"><a href="#cb72-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(rri(<span class="dv">96</span>, <span class="dv">10000</span>, <span class="dv">11000</span>), <span class="dv">6</span>) <span class="kw">AS</span> rri_result;</span>
-<span id="cb72-3"><a href="#cb72-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.000988</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb73"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb73-1"><a href="#cb73-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: RRI(96, 10000, 11000) = 0.0988% per period</span></span>
+<span id="cb73-2"><a href="#cb73-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(rri(<span class="dv">96</span>, <span class="dv">10000</span>, <span class="dv">11000</span>), <span class="dv">6</span>) <span class="kw">AS</span> rri_result;</span>
+<span id="cb73-3"><a href="#cb73-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.000988</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="pduration-periods-to-reach-a-value" class="level2">
 <h2 class="anchored" data-anchor-id="pduration-periods-to-reach-a-value">PDURATION — Periods to Reach a Value</h2>
 <p><strong>DuckDB signature:</strong> <code>pduration(rate, pv, fv)</code></p>
 <p>Returns the number of periods required for an investment to reach a target value.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb73"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb73-1"><a href="#cb73-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: PDURATION(2.5%, 2000, 2200) = 3.86 periods</span></span>
-<span id="cb73-2"><a href="#cb73-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(pduration(<span class="fl">0.025</span>, <span class="dv">2000</span>, <span class="dv">2200</span>), <span class="dv">4</span>) <span class="kw">AS</span> pduration_result;</span>
-<span id="cb73-3"><a href="#cb73-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result:  3.8599</span></span>
-<span id="cb73-4"><a href="#cb73-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb73-5"><a href="#cb73-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: PDURATION(2.5%/12, 1000, 1200) = 87.6 periods</span></span>
-<span id="cb73-6"><a href="#cb73-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(pduration(<span class="fl">0.025</span><span class="op">/</span><span class="dv">12</span>, <span class="dv">1000</span>, <span class="dv">1200</span>), <span class="dv">4</span>) <span class="kw">AS</span> pduration_result;</span>
-<span id="cb73-7"><a href="#cb73-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result:   87.6055</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb74"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb74-1"><a href="#cb74-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: PDURATION(2.5%, 2000, 2200) = 3.86 periods</span></span>
+<span id="cb74-2"><a href="#cb74-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(pduration(<span class="fl">0.025</span>, <span class="dv">2000</span>, <span class="dv">2200</span>), <span class="dv">4</span>) <span class="kw">AS</span> pduration_result;</span>
+<span id="cb74-3"><a href="#cb74-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result:  3.8599</span></span>
+<span id="cb74-4"><a href="#cb74-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb74-5"><a href="#cb74-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: PDURATION(2.5%/12, 1000, 1200) = 87.6 periods</span></span>
+<span id="cb74-6"><a href="#cb74-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(pduration(<span class="fl">0.025</span><span class="op">/</span><span class="dv">12</span>, <span class="dv">1000</span>, <span class="dv">1200</span>), <span class="dv">4</span>) <span class="kw">AS</span> pduration_result;</span>
+<span id="cb74-7"><a href="#cb74-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result:   87.6055</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="tbillprice-treasury-bill-price" class="level2">
 <h2 class="anchored" data-anchor-id="tbillprice-treasury-bill-price">TBILLPRICE — Treasury Bill Price</h2>
 <p><strong>DuckDB signature:</strong> <code>tbillprice(settlement, maturity, discount)</code></p>
 <p>Price per $100 face value for a Treasury bill.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb74"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb74-1"><a href="#cb74-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: TBILLPRICE(2008-03-31, 2008-06-01, 9.0%) = 98.45</span></span>
-<span id="cb74-2"><a href="#cb74-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(tbillprice(<span class="st">&#39;2008-03-31&#39;</span>, <span class="st">&#39;2008-06-01&#39;</span>, <span class="fl">0.09</span>), <span class="dv">2</span>) <span class="kw">AS</span> tbillprice_result;</span>
-<span id="cb74-3"><a href="#cb74-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 98.45</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb75"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb75-1"><a href="#cb75-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: TBILLPRICE(2008-03-31, 2008-06-01, 9.0%) = 98.45</span></span>
+<span id="cb75-2"><a href="#cb75-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(tbillprice(<span class="st">&#39;2008-03-31&#39;</span>, <span class="st">&#39;2008-06-01&#39;</span>, <span class="fl">0.09</span>), <span class="dv">2</span>) <span class="kw">AS</span> tbillprice_result;</span>
+<span id="cb75-3"><a href="#cb75-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 98.45</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="tbillyield-treasury-bill-yield" class="level2">
 <h2 class="anchored" data-anchor-id="tbillyield-treasury-bill-yield">TBILLYIELD — Treasury Bill Yield</h2>
 <p><strong>DuckDB signature:</strong> <code>tbillyield(settlement, maturity, pr)</code></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb75"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb75-1"><a href="#cb75-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: TBILLYIELD(2008-03-31, 2008-06-01, 98.45) = 9.14%</span></span>
-<span id="cb75-2"><a href="#cb75-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(tbillyield(<span class="st">&#39;2008-03-31&#39;</span>, <span class="st">&#39;2008-06-01&#39;</span>, <span class="fl">98.45</span>), <span class="dv">4</span>) <span class="kw">AS</span> tbillyield_result;</span>
-<span id="cb75-3"><a href="#cb75-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.0914</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb76"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb76-1"><a href="#cb76-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: TBILLYIELD(2008-03-31, 2008-06-01, 98.45) = 9.14%</span></span>
+<span id="cb76-2"><a href="#cb76-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(tbillyield(<span class="st">&#39;2008-03-31&#39;</span>, <span class="st">&#39;2008-06-01&#39;</span>, <span class="fl">98.45</span>), <span class="dv">4</span>) <span class="kw">AS</span> tbillyield_result;</span>
+<span id="cb76-3"><a href="#cb76-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.0914</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="tbilleq-treasury-bill-bond-equivalent-yield" class="level2">
 <h2 class="anchored" data-anchor-id="tbilleq-treasury-bill-bond-equivalent-yield">TBILLEQ — Treasury Bill Bond-Equivalent Yield</h2>
@@ -4046,123 +4070,124 @@ panic in a function that cannot unwind</code></pre>
 <li><strong>≤ 182 days:</strong> <span class="math inline">\(\frac{365 \times discount}{360 - discount \times DSM}\)</span></li>
 <li><strong>&gt; 182 days:</strong> Quadratic solution to account for reinvestment compounding</li>
 </ul>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb76"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb76-1"><a href="#cb76-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: TBILLEQ(2008-03-31, 2008-06-01, 9.14%) = 9.42%</span></span>
-<span id="cb76-2"><a href="#cb76-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(tbilleq(<span class="st">&#39;2008-03-31&#39;</span>, <span class="st">&#39;2008-06-01&#39;</span>, <span class="fl">0.0914</span>), <span class="dv">4</span>) <span class="kw">AS</span> tbilleq_result;</span>
-<span id="cb76-3"><a href="#cb76-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.0942</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb77"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb77-1"><a href="#cb77-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: TBILLEQ(2008-03-31, 2008-06-01, 9.14%) = 9.42%</span></span>
+<span id="cb77-2"><a href="#cb77-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(tbilleq(<span class="st">&#39;2008-03-31&#39;</span>, <span class="st">&#39;2008-06-01&#39;</span>, <span class="fl">0.0914</span>), <span class="dv">4</span>) <span class="kw">AS</span> tbilleq_result;</span>
+<span id="cb77-3"><a href="#cb77-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.0942</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="oddfprice-odd-first-period-bond-price" class="level2">
 <h2 class="anchored" data-anchor-id="oddfprice-odd-first-period-bond-price">ODDFPRICE — Odd First Period Bond Price</h2>
 <p><strong>DuckDB signature:</strong> <code>oddfprice(settlement, maturity, issue, first_coupon, rate, yld, redemption, frequency, basis)</code></p>
 <p>Price of a bond with an irregular (short or long) first coupon period.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb77"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb77-1"><a href="#cb77-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: ODDFPRICE(2008-11-11, 2021-03-01, 2008-10-15, 2009-03-01, 7.85%, 6.25%, 100, 2, 1)</span></span>
-<span id="cb77-2"><a href="#cb77-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(oddfprice(</span>
-<span id="cb77-3"><a href="#cb77-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;2008-11-11&#39;</span>, <span class="st">&#39;2021-03-01&#39;</span>, <span class="st">&#39;2008-10-15&#39;</span>, <span class="st">&#39;2009-03-01&#39;</span>,</span>
-<span id="cb77-4"><a href="#cb77-4" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.0785</span>, <span class="fl">0.0625</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">1</span></span>
-<span id="cb77-5"><a href="#cb77-5" aria-hidden="true" tabindex="-1"></a>), <span class="dv">2</span>) <span class="kw">AS</span> oddfprice_result;</span>
-<span id="cb77-6"><a href="#cb77-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 113.60</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb78"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb78-1"><a href="#cb78-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: ODDFPRICE(2008-11-11, 2021-03-01, 2008-10-15, 2009-03-01, 7.85%, 6.25%, 100, 2, 1)</span></span>
+<span id="cb78-2"><a href="#cb78-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(oddfprice(</span>
+<span id="cb78-3"><a href="#cb78-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;2008-11-11&#39;</span>, <span class="st">&#39;2021-03-01&#39;</span>, <span class="st">&#39;2008-10-15&#39;</span>, <span class="st">&#39;2009-03-01&#39;</span>,</span>
+<span id="cb78-4"><a href="#cb78-4" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.0785</span>, <span class="fl">0.0625</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">1</span></span>
+<span id="cb78-5"><a href="#cb78-5" aria-hidden="true" tabindex="-1"></a>), <span class="dv">2</span>) <span class="kw">AS</span> oddfprice_result;</span>
+<span id="cb78-6"><a href="#cb78-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 113.60</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="oddfyield-odd-first-period-bond-yield" class="level2">
 <h2 class="anchored" data-anchor-id="oddfyield-odd-first-period-bond-yield">ODDFYIELD — Odd First Period Bond Yield</h2>
 <p><strong>DuckDB signature:</strong> <code>oddfyield(settlement, maturity, issue, first_coupon, rate, pr, redemption, frequency, basis)</code></p>
 <p>Inverts ODDFPRICE via bisection.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb78"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb78-1"><a href="#cb78-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: ODDFYIELD(2008-11-11, 2021-03-01, 2008-10-15, 2009-03-01, 5.75%, 84.50, 100, 2, 1) = 7.72%</span></span>
-<span id="cb78-2"><a href="#cb78-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(oddfyield(</span>
-<span id="cb78-3"><a href="#cb78-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;2008-11-11&#39;</span>, <span class="st">&#39;2021-03-01&#39;</span>, <span class="st">&#39;2008-10-15&#39;</span>, <span class="st">&#39;2009-03-01&#39;</span>,</span>
-<span id="cb78-4"><a href="#cb78-4" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.0575</span>, <span class="fl">84.50</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">1</span></span>
-<span id="cb78-5"><a href="#cb78-5" aria-hidden="true" tabindex="-1"></a>), <span class="dv">4</span>) <span class="kw">AS</span> oddfyield_result;</span>
-<span id="cb78-6"><a href="#cb78-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.0772</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb79"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb79-1"><a href="#cb79-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: ODDFYIELD(2008-11-11, 2021-03-01, 2008-10-15, 2009-03-01, 5.75%, 84.50, 100, 2, 1) = 7.72%</span></span>
+<span id="cb79-2"><a href="#cb79-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(oddfyield(</span>
+<span id="cb79-3"><a href="#cb79-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;2008-11-11&#39;</span>, <span class="st">&#39;2021-03-01&#39;</span>, <span class="st">&#39;2008-10-15&#39;</span>, <span class="st">&#39;2009-03-01&#39;</span>,</span>
+<span id="cb79-4"><a href="#cb79-4" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.0575</span>, <span class="fl">84.50</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">1</span></span>
+<span id="cb79-5"><a href="#cb79-5" aria-hidden="true" tabindex="-1"></a>), <span class="dv">4</span>) <span class="kw">AS</span> oddfyield_result;</span>
+<span id="cb79-6"><a href="#cb79-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.0772</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="oddlprice-odd-last-period-bond-price" class="level2">
 <h2 class="anchored" data-anchor-id="oddlprice-odd-last-period-bond-price">ODDLPRICE — Odd Last Period Bond Price</h2>
 <p><strong>DuckDB signature:</strong> <code>oddlprice(settlement, maturity, last_interest, rate, yld, redemption, frequency, basis)</code></p>
 <p>Price of a bond with an irregular last coupon period.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb79"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb79-1"><a href="#cb79-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: ODDLPRICE(2008-02-07, 2008-06-15, 2007-10-15, 3.75%, 4.05%, 100, 2, 0) = 99.88</span></span>
-<span id="cb79-2"><a href="#cb79-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(oddlprice(</span>
-<span id="cb79-3"><a href="#cb79-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;2008-02-07&#39;</span>, <span class="st">&#39;2008-06-15&#39;</span>, <span class="st">&#39;2007-10-15&#39;</span>,</span>
-<span id="cb79-4"><a href="#cb79-4" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.0375</span>, <span class="fl">0.0405</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">0</span></span>
-<span id="cb79-5"><a href="#cb79-5" aria-hidden="true" tabindex="-1"></a>), <span class="dv">2</span>) <span class="kw">AS</span> oddlprice_result;</span>
-<span id="cb79-6"><a href="#cb79-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 99.88</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb80"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb80-1"><a href="#cb80-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: ODDLPRICE(2008-02-07, 2008-06-15, 2007-10-15, 3.75%, 4.05%, 100, 2, 0) = 99.88</span></span>
+<span id="cb80-2"><a href="#cb80-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(oddlprice(</span>
+<span id="cb80-3"><a href="#cb80-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;2008-02-07&#39;</span>, <span class="st">&#39;2008-06-15&#39;</span>, <span class="st">&#39;2007-10-15&#39;</span>,</span>
+<span id="cb80-4"><a href="#cb80-4" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.0375</span>, <span class="fl">0.0405</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">0</span></span>
+<span id="cb80-5"><a href="#cb80-5" aria-hidden="true" tabindex="-1"></a>), <span class="dv">2</span>) <span class="kw">AS</span> oddlprice_result;</span>
+<span id="cb80-6"><a href="#cb80-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 99.88</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="oddlyield-odd-last-period-bond-yield" class="level2">
 <h2 class="anchored" data-anchor-id="oddlyield-odd-last-period-bond-yield">ODDLYIELD — Odd Last Period Bond Yield</h2>
 <p><strong>DuckDB signature:</strong> <code>oddlyield(settlement, maturity, last_interest, rate, pr, redemption, frequency, basis)</code></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb80"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb80-1"><a href="#cb80-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: ODDLYIELD(2008-04-20, 2008-06-15, 2007-12-24, 3.75%, 99.875, 100, 2, 0) = 4.52%</span></span>
-<span id="cb80-2"><a href="#cb80-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(oddlyield(</span>
-<span id="cb80-3"><a href="#cb80-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;2008-04-20&#39;</span>, <span class="st">&#39;2008-06-15&#39;</span>, <span class="st">&#39;2007-12-24&#39;</span>,</span>
-<span id="cb80-4"><a href="#cb80-4" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.0375</span>, <span class="fl">99.875</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">0</span></span>
-<span id="cb80-5"><a href="#cb80-5" aria-hidden="true" tabindex="-1"></a>), <span class="dv">4</span>) <span class="kw">AS</span> oddlyield_result;</span>
-<span id="cb80-6"><a href="#cb80-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.0452</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb81"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb81-1"><a href="#cb81-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Excel example: ODDLYIELD(2008-04-20, 2008-06-15, 2007-12-24, 3.75%, 99.875, 100, 2, 0) = 4.52%</span></span>
+<span id="cb81-2"><a href="#cb81-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(oddlyield(</span>
+<span id="cb81-3"><a href="#cb81-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;2008-04-20&#39;</span>, <span class="st">&#39;2008-06-15&#39;</span>, <span class="st">&#39;2007-12-24&#39;</span>,</span>
+<span id="cb81-4"><a href="#cb81-4" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.0375</span>, <span class="fl">99.875</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">0</span></span>
+<span id="cb81-5"><a href="#cb81-5" aria-hidden="true" tabindex="-1"></a>), <span class="dv">4</span>) <span class="kw">AS</span> oddlyield_result;</span>
+<span id="cb81-6"><a href="#cb81-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.0452</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
 </section>
 <section id="extension-entry-point" class="level1">
 <h1>Extension Entry Point</h1>
-<p>All 55 functions are registered in a single entry point:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb81"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb81-1"><a href="#cb81-1" aria-hidden="true" tabindex="-1"></a><span class="at">#[</span>duckdb_entrypoint_c_api<span class="at">]</span></span>
-<span id="cb81-2"><a href="#cb81-2" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> extension_entrypoint(con<span class="op">:</span> Connection) <span class="op">-&gt;</span> <span class="dt">Result</span><span class="op">&lt;</span>()<span class="op">,</span> <span class="dt">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="bu">Error</span><span class="op">&gt;&gt;</span> <span class="op">{</span></span>
-<span id="cb81-3"><a href="#cb81-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Annuity (10)</span></span>
-<span id="cb81-4"><a href="#cb81-4" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>FvFunction<span class="op">&gt;</span>(<span class="st">&quot;fv&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-5"><a href="#cb81-5" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>PvFunction<span class="op">&gt;</span>(<span class="st">&quot;pv&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-6"><a href="#cb81-6" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>PmtFunction<span class="op">&gt;</span>(<span class="st">&quot;pmt&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-7"><a href="#cb81-7" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>IpmtFunction<span class="op">&gt;</span>(<span class="st">&quot;ipmt&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-8"><a href="#cb81-8" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>PpmtFunction<span class="op">&gt;</span>(<span class="st">&quot;ppmt&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-9"><a href="#cb81-9" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>CumipmtFunction<span class="op">&gt;</span>(<span class="st">&quot;cumipmt&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-10"><a href="#cb81-10" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>CumprincFunction<span class="op">&gt;</span>(<span class="st">&quot;cumprinc&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-11"><a href="#cb81-11" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>NperFunction<span class="op">&gt;</span>(<span class="st">&quot;nper&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-12"><a href="#cb81-12" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>RateFunction<span class="op">&gt;</span>(<span class="st">&quot;rate&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-13"><a href="#cb81-13" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>IspmtFunction<span class="op">&gt;</span>(<span class="st">&quot;ispmt&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-14"><a href="#cb81-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Cash flows (5)</span></span>
-<span id="cb81-15"><a href="#cb81-15" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>NpvFunction<span class="op">&gt;</span>(<span class="st">&quot;npv&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-16"><a href="#cb81-16" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>IrrFunction<span class="op">&gt;</span>(<span class="st">&quot;irr&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-17"><a href="#cb81-17" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>MirrFunction<span class="op">&gt;</span>(<span class="st">&quot;mirr&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-18"><a href="#cb81-18" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>XnpvFunction<span class="op">&gt;</span>(<span class="st">&quot;xnpv&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-19"><a href="#cb81-19" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>XirrFunction<span class="op">&gt;</span>(<span class="st">&quot;xirr&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-20"><a href="#cb81-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Depreciation (7)</span></span>
-<span id="cb81-21"><a href="#cb81-21" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>SlnFunction<span class="op">&gt;</span>(<span class="st">&quot;sln&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-22"><a href="#cb81-22" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>SydFunction<span class="op">&gt;</span>(<span class="st">&quot;syd&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-23"><a href="#cb81-23" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>DbFunction<span class="op">&gt;</span>(<span class="st">&quot;db&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-24"><a href="#cb81-24" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>DdbFunction<span class="op">&gt;</span>(<span class="st">&quot;ddb&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-25"><a href="#cb81-25" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>VdbFunction<span class="op">&gt;</span>(<span class="st">&quot;vdb&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-26"><a href="#cb81-26" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>AmorlincFunction<span class="op">&gt;</span>(<span class="st">&quot;amorlinc&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-27"><a href="#cb81-27" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>AmordegrcFunction<span class="op">&gt;</span>(<span class="st">&quot;amordegrc&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-28"><a href="#cb81-28" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Coupon dates (6)</span></span>
-<span id="cb81-29"><a href="#cb81-29" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>CoupdaybsFunction<span class="op">&gt;</span>(<span class="st">&quot;coupdaybs&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-30"><a href="#cb81-30" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>CoupdaysFunction<span class="op">&gt;</span>(<span class="st">&quot;coupdays&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-31"><a href="#cb81-31" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>CoupdayssncFunction<span class="op">&gt;</span>(<span class="st">&quot;coupdaysnc&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-32"><a href="#cb81-32" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>CoupncdFunction<span class="op">&gt;</span>(<span class="st">&quot;coupncd&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-33"><a href="#cb81-33" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>CouppcdFunction<span class="op">&gt;</span>(<span class="st">&quot;couppcd&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-34"><a href="#cb81-34" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>CoupnumFunction<span class="op">&gt;</span>(<span class="st">&quot;coupnum&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-35"><a href="#cb81-35" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Bonds (13)</span></span>
-<span id="cb81-36"><a href="#cb81-36" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>PriceFunction<span class="op">&gt;</span>(<span class="st">&quot;price&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-37"><a href="#cb81-37" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>PricediscFunction<span class="op">&gt;</span>(<span class="st">&quot;pricedisc&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-38"><a href="#cb81-38" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>PricematFunction<span class="op">&gt;</span>(<span class="st">&quot;pricemat&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-39"><a href="#cb81-39" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>YieldFunction<span class="op">&gt;</span>(<span class="st">&quot;yield&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-40"><a href="#cb81-40" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>YielddiscFunction<span class="op">&gt;</span>(<span class="st">&quot;yielddisc&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-41"><a href="#cb81-41" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>YieldmatFunction<span class="op">&gt;</span>(<span class="st">&quot;yieldmat&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-42"><a href="#cb81-42" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>DiscFunction<span class="op">&gt;</span>(<span class="st">&quot;disc&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-43"><a href="#cb81-43" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>IntrateFunction<span class="op">&gt;</span>(<span class="st">&quot;intrate&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-44"><a href="#cb81-44" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>ReceivedFunction<span class="op">&gt;</span>(<span class="st">&quot;received&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-45"><a href="#cb81-45" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>DurationFunction<span class="op">&gt;</span>(<span class="st">&quot;duration&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-46"><a href="#cb81-46" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>MdurationFunction<span class="op">&gt;</span>(<span class="st">&quot;mduration&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-47"><a href="#cb81-47" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>AccrintFunction<span class="op">&gt;</span>(<span class="st">&quot;accrint&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-48"><a href="#cb81-48" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>AccrintmFunction<span class="op">&gt;</span>(<span class="st">&quot;accrintm&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-49"><a href="#cb81-49" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Misc (14)</span></span>
-<span id="cb81-50"><a href="#cb81-50" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>EffectFunction<span class="op">&gt;</span>(<span class="st">&quot;effect&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-51"><a href="#cb81-51" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>NominalFunction<span class="op">&gt;</span>(<span class="st">&quot;nominal&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-52"><a href="#cb81-52" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>DollardeFunction<span class="op">&gt;</span>(<span class="st">&quot;dollarde&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-53"><a href="#cb81-53" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>DollarfrFunction<span class="op">&gt;</span>(<span class="st">&quot;dollarfr&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-54"><a href="#cb81-54" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>FvscheduleFunction<span class="op">&gt;</span>(<span class="st">&quot;fvschedule&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-55"><a href="#cb81-55" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>RriFunction<span class="op">&gt;</span>(<span class="st">&quot;rri&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-56"><a href="#cb81-56" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>PdurationFunction<span class="op">&gt;</span>(<span class="st">&quot;pduration&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-57"><a href="#cb81-57" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>TbillpriceFunction<span class="op">&gt;</span>(<span class="st">&quot;tbillprice&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-58"><a href="#cb81-58" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>TbillyieldFunction<span class="op">&gt;</span>(<span class="st">&quot;tbillyield&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-59"><a href="#cb81-59" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>TbilleqFunction<span class="op">&gt;</span>(<span class="st">&quot;tbilleq&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-60"><a href="#cb81-60" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>OddfpriceFunction<span class="op">&gt;</span>(<span class="st">&quot;oddfprice&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-61"><a href="#cb81-61" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>OddfyieldFunction<span class="op">&gt;</span>(<span class="st">&quot;oddfyield&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-62"><a href="#cb81-62" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>OddlpriceFunction<span class="op">&gt;</span>(<span class="st">&quot;oddlprice&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-63"><a href="#cb81-63" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>OddlyieldFunction<span class="op">&gt;</span>(<span class="st">&quot;oddlyield&quot;</span>)<span class="op">?;</span></span>
-<span id="cb81-64"><a href="#cb81-64" aria-hidden="true" tabindex="-1"></a>    <span class="cn">Ok</span>(())</span>
-<span id="cb81-65"><a href="#cb81-65" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>All 56 functions are registered in a single entry point:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb82"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb82-1"><a href="#cb82-1" aria-hidden="true" tabindex="-1"></a><span class="at">#[</span>duckdb_entrypoint_c_api<span class="at">]</span></span>
+<span id="cb82-2"><a href="#cb82-2" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> extension_entrypoint(con<span class="op">:</span> Connection) <span class="op">-&gt;</span> <span class="dt">Result</span><span class="op">&lt;</span>()<span class="op">,</span> <span class="dt">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="bu">Error</span><span class="op">&gt;&gt;</span> <span class="op">{</span></span>
+<span id="cb82-3"><a href="#cb82-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Annuity (10)</span></span>
+<span id="cb82-4"><a href="#cb82-4" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>FvFunction<span class="op">&gt;</span>(<span class="st">&quot;fv&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-5"><a href="#cb82-5" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>PvFunction<span class="op">&gt;</span>(<span class="st">&quot;pv&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-6"><a href="#cb82-6" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>PmtFunction<span class="op">&gt;</span>(<span class="st">&quot;pmt&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-7"><a href="#cb82-7" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>IpmtFunction<span class="op">&gt;</span>(<span class="st">&quot;ipmt&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-8"><a href="#cb82-8" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>PpmtFunction<span class="op">&gt;</span>(<span class="st">&quot;ppmt&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-9"><a href="#cb82-9" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>CumipmtFunction<span class="op">&gt;</span>(<span class="st">&quot;cumipmt&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-10"><a href="#cb82-10" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>CumprincFunction<span class="op">&gt;</span>(<span class="st">&quot;cumprinc&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-11"><a href="#cb82-11" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>NperFunction<span class="op">&gt;</span>(<span class="st">&quot;nper&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-12"><a href="#cb82-12" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>RateFunction<span class="op">&gt;</span>(<span class="st">&quot;rate&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-13"><a href="#cb82-13" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>IspmtFunction<span class="op">&gt;</span>(<span class="st">&quot;ispmt&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-14"><a href="#cb82-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Cash flows (5)</span></span>
+<span id="cb82-15"><a href="#cb82-15" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>NpvFunction<span class="op">&gt;</span>(<span class="st">&quot;npv&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-16"><a href="#cb82-16" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>IrrFunction<span class="op">&gt;</span>(<span class="st">&quot;irr&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-17"><a href="#cb82-17" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>MirrFunction<span class="op">&gt;</span>(<span class="st">&quot;mirr&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-18"><a href="#cb82-18" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>XnpvFunction<span class="op">&gt;</span>(<span class="st">&quot;xnpv&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-19"><a href="#cb82-19" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>XirrFunction<span class="op">&gt;</span>(<span class="st">&quot;xirr&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-20"><a href="#cb82-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Depreciation (7)</span></span>
+<span id="cb82-21"><a href="#cb82-21" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>SlnFunction<span class="op">&gt;</span>(<span class="st">&quot;sln&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-22"><a href="#cb82-22" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>SydFunction<span class="op">&gt;</span>(<span class="st">&quot;syd&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-23"><a href="#cb82-23" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>DbFunction<span class="op">&gt;</span>(<span class="st">&quot;db&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-24"><a href="#cb82-24" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>DdbFunction<span class="op">&gt;</span>(<span class="st">&quot;ddb&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-25"><a href="#cb82-25" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>VdbFunction<span class="op">&gt;</span>(<span class="st">&quot;vdb&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-26"><a href="#cb82-26" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>AmorlincFunction<span class="op">&gt;</span>(<span class="st">&quot;amorlinc&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-27"><a href="#cb82-27" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>AmordegrcFunction<span class="op">&gt;</span>(<span class="st">&quot;amordegrc&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-28"><a href="#cb82-28" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Coupon dates (6)</span></span>
+<span id="cb82-29"><a href="#cb82-29" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>CoupdaybsFunction<span class="op">&gt;</span>(<span class="st">&quot;coupdaybs&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-30"><a href="#cb82-30" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>CoupdaysFunction<span class="op">&gt;</span>(<span class="st">&quot;coupdays&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-31"><a href="#cb82-31" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>CoupdayssncFunction<span class="op">&gt;</span>(<span class="st">&quot;coupdaysnc&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-32"><a href="#cb82-32" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>CoupncdFunction<span class="op">&gt;</span>(<span class="st">&quot;coupncd&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-33"><a href="#cb82-33" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>CouppcdFunction<span class="op">&gt;</span>(<span class="st">&quot;couppcd&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-34"><a href="#cb82-34" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>CoupnumFunction<span class="op">&gt;</span>(<span class="st">&quot;coupnum&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-35"><a href="#cb82-35" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Bonds (13)</span></span>
+<span id="cb82-36"><a href="#cb82-36" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>PriceFunction<span class="op">&gt;</span>(<span class="st">&quot;price&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-37"><a href="#cb82-37" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>PricediscFunction<span class="op">&gt;</span>(<span class="st">&quot;pricedisc&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-38"><a href="#cb82-38" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>PricematFunction<span class="op">&gt;</span>(<span class="st">&quot;pricemat&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-39"><a href="#cb82-39" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>YieldFunction<span class="op">&gt;</span>(<span class="st">&quot;yield&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-40"><a href="#cb82-40" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>YielddiscFunction<span class="op">&gt;</span>(<span class="st">&quot;yielddisc&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-41"><a href="#cb82-41" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>YieldmatFunction<span class="op">&gt;</span>(<span class="st">&quot;yieldmat&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-42"><a href="#cb82-42" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>DiscFunction<span class="op">&gt;</span>(<span class="st">&quot;disc&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-43"><a href="#cb82-43" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>IntrateFunction<span class="op">&gt;</span>(<span class="st">&quot;intrate&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-44"><a href="#cb82-44" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>ReceivedFunction<span class="op">&gt;</span>(<span class="st">&quot;received&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-45"><a href="#cb82-45" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>DurationFunction<span class="op">&gt;</span>(<span class="st">&quot;duration&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-46"><a href="#cb82-46" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>MdurationFunction<span class="op">&gt;</span>(<span class="st">&quot;mduration&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-47"><a href="#cb82-47" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>ConvexityFunction<span class="op">&gt;</span>(<span class="st">&quot;convexity&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-48"><a href="#cb82-48" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>AccrintFunction<span class="op">&gt;</span>(<span class="st">&quot;accrint&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-49"><a href="#cb82-49" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>AccrintmFunction<span class="op">&gt;</span>(<span class="st">&quot;accrintm&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-50"><a href="#cb82-50" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Misc (14)</span></span>
+<span id="cb82-51"><a href="#cb82-51" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>EffectFunction<span class="op">&gt;</span>(<span class="st">&quot;effect&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-52"><a href="#cb82-52" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>NominalFunction<span class="op">&gt;</span>(<span class="st">&quot;nominal&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-53"><a href="#cb82-53" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>DollardeFunction<span class="op">&gt;</span>(<span class="st">&quot;dollarde&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-54"><a href="#cb82-54" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>DollarfrFunction<span class="op">&gt;</span>(<span class="st">&quot;dollarfr&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-55"><a href="#cb82-55" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>FvscheduleFunction<span class="op">&gt;</span>(<span class="st">&quot;fvschedule&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-56"><a href="#cb82-56" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>RriFunction<span class="op">&gt;</span>(<span class="st">&quot;rri&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-57"><a href="#cb82-57" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>PdurationFunction<span class="op">&gt;</span>(<span class="st">&quot;pduration&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-58"><a href="#cb82-58" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>TbillpriceFunction<span class="op">&gt;</span>(<span class="st">&quot;tbillprice&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-59"><a href="#cb82-59" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>TbillyieldFunction<span class="op">&gt;</span>(<span class="st">&quot;tbillyield&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-60"><a href="#cb82-60" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>TbilleqFunction<span class="op">&gt;</span>(<span class="st">&quot;tbilleq&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-61"><a href="#cb82-61" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>OddfpriceFunction<span class="op">&gt;</span>(<span class="st">&quot;oddfprice&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-62"><a href="#cb82-62" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>OddfyieldFunction<span class="op">&gt;</span>(<span class="st">&quot;oddfyield&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-63"><a href="#cb82-63" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>OddlpriceFunction<span class="op">&gt;</span>(<span class="st">&quot;oddlprice&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-64"><a href="#cb82-64" aria-hidden="true" tabindex="-1"></a>    con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>OddlyieldFunction<span class="op">&gt;</span>(<span class="st">&quot;oddlyield&quot;</span>)<span class="op">?;</span></span>
+<span id="cb82-65"><a href="#cb82-65" aria-hidden="true" tabindex="-1"></a>    <span class="cn">Ok</span>(())</span>
+<span id="cb82-66"><a href="#cb82-66" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -4180,27 +4205,27 @@ Note
 </section>
 <section id="loading-and-using-the-extension" class="level1">
 <h1>Loading and Using the Extension</h1>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb82"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb82-1"><a href="#cb82-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Launch DuckDB with --unsigned flag (required for unsigned extensions)</span></span>
-<span id="cb82-2"><a href="#cb82-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- duckdb --unsigned</span></span>
-<span id="cb82-3"><a href="#cb82-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb82-4"><a href="#cb82-4" aria-hidden="true" tabindex="-1"></a>LOAD <span class="st">&#39;&lt;your Extension path&gt;/fin_functions.duckdb_extension&#39;</span>;</span>
-<span id="cb82-5"><a href="#cb82-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- LOAD &#39;C:/Users/storl/Desktop/Financial_Functions/fin_functions.duckdb_extension&#39;;</span></span>
-<span id="cb82-6"><a href="#cb82-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb82-7"><a href="#cb82-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Verify all 55 functions loaded</span></span>
-<span id="cb82-8"><a href="#cb82-8" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="kw">AS</span> loaded</span>
-<span id="cb82-9"><a href="#cb82-9" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> duckdb_functions()</span>
-<span id="cb82-10"><a href="#cb82-10" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> function_name <span class="kw">IN</span> (</span>
-<span id="cb82-11"><a href="#cb82-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;fv&#39;</span>,<span class="st">&#39;pv&#39;</span>,<span class="st">&#39;pmt&#39;</span>,<span class="st">&#39;ipmt&#39;</span>,<span class="st">&#39;ppmt&#39;</span>,<span class="st">&#39;cumipmt&#39;</span>,<span class="st">&#39;cumprinc&#39;</span>,<span class="st">&#39;nper&#39;</span>,<span class="st">&#39;rate&#39;</span>,<span class="st">&#39;ispmt&#39;</span>,</span>
-<span id="cb82-12"><a href="#cb82-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;npv&#39;</span>,<span class="st">&#39;irr&#39;</span>,<span class="st">&#39;mirr&#39;</span>,<span class="st">&#39;xnpv&#39;</span>,<span class="st">&#39;xirr&#39;</span>,</span>
-<span id="cb82-13"><a href="#cb82-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;sln&#39;</span>,<span class="st">&#39;syd&#39;</span>,<span class="st">&#39;db&#39;</span>,<span class="st">&#39;ddb&#39;</span>,<span class="st">&#39;vdb&#39;</span>,<span class="st">&#39;amorlinc&#39;</span>,<span class="st">&#39;amordegrc&#39;</span>,</span>
-<span id="cb82-14"><a href="#cb82-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;coupdaybs&#39;</span>,<span class="st">&#39;coupdays&#39;</span>,<span class="st">&#39;coupdaysnc&#39;</span>,<span class="st">&#39;coupncd&#39;</span>,<span class="st">&#39;couppcd&#39;</span>,<span class="st">&#39;coupnum&#39;</span>,</span>
-<span id="cb82-15"><a href="#cb82-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;price&#39;</span>,<span class="st">&#39;pricedisc&#39;</span>,<span class="st">&#39;pricemat&#39;</span>,<span class="st">&#39;yield&#39;</span>,<span class="st">&#39;yielddisc&#39;</span>,<span class="st">&#39;yieldmat&#39;</span>,</span>
-<span id="cb82-16"><a href="#cb82-16" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;disc&#39;</span>,<span class="st">&#39;intrate&#39;</span>,<span class="st">&#39;received&#39;</span>,<span class="st">&#39;duration&#39;</span>,<span class="st">&#39;mduration&#39;</span>,<span class="st">&#39;accrint&#39;</span>,<span class="st">&#39;accrintm&#39;</span>,</span>
-<span id="cb82-17"><a href="#cb82-17" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;effect&#39;</span>,<span class="st">&#39;nominal&#39;</span>,<span class="st">&#39;dollarde&#39;</span>,<span class="st">&#39;dollarfr&#39;</span>,<span class="st">&#39;fvschedule&#39;</span>,<span class="st">&#39;rri&#39;</span>,<span class="st">&#39;pduration&#39;</span>,</span>
-<span id="cb82-18"><a href="#cb82-18" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;tbillprice&#39;</span>,<span class="st">&#39;tbillyield&#39;</span>,<span class="st">&#39;tbilleq&#39;</span>,</span>
-<span id="cb82-19"><a href="#cb82-19" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;oddfprice&#39;</span>,<span class="st">&#39;oddfyield&#39;</span>,<span class="st">&#39;oddlprice&#39;</span>,<span class="st">&#39;oddlyield&#39;</span></span>
-<span id="cb82-20"><a href="#cb82-20" aria-hidden="true" tabindex="-1"></a>);</span>
-<span id="cb82-21"><a href="#cb82-21" aria-hidden="true" tabindex="-1"></a><span class="co">-- Expected: 55</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb83"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb83-1"><a href="#cb83-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Launch DuckDB with --unsigned flag (required for unsigned extensions)</span></span>
+<span id="cb83-2"><a href="#cb83-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- duckdb --unsigned</span></span>
+<span id="cb83-3"><a href="#cb83-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb83-4"><a href="#cb83-4" aria-hidden="true" tabindex="-1"></a>LOAD <span class="st">&#39;&lt;your Extension path&gt;/fin_functions.duckdb_extension&#39;</span>;</span>
+<span id="cb83-5"><a href="#cb83-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- LOAD &#39;C:/Users/storl/Desktop/Financial_Functions/fin_functions.duckdb_extension&#39;;</span></span>
+<span id="cb83-6"><a href="#cb83-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb83-7"><a href="#cb83-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Verify all 56 functions loaded</span></span>
+<span id="cb83-8"><a href="#cb83-8" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="kw">AS</span> loaded</span>
+<span id="cb83-9"><a href="#cb83-9" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> duckdb_functions()</span>
+<span id="cb83-10"><a href="#cb83-10" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> function_name <span class="kw">IN</span> (</span>
+<span id="cb83-11"><a href="#cb83-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;fv&#39;</span>,<span class="st">&#39;pv&#39;</span>,<span class="st">&#39;pmt&#39;</span>,<span class="st">&#39;ipmt&#39;</span>,<span class="st">&#39;ppmt&#39;</span>,<span class="st">&#39;cumipmt&#39;</span>,<span class="st">&#39;cumprinc&#39;</span>,<span class="st">&#39;nper&#39;</span>,<span class="st">&#39;rate&#39;</span>,<span class="st">&#39;ispmt&#39;</span>,</span>
+<span id="cb83-12"><a href="#cb83-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;npv&#39;</span>,<span class="st">&#39;irr&#39;</span>,<span class="st">&#39;mirr&#39;</span>,<span class="st">&#39;xnpv&#39;</span>,<span class="st">&#39;xirr&#39;</span>,</span>
+<span id="cb83-13"><a href="#cb83-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;sln&#39;</span>,<span class="st">&#39;syd&#39;</span>,<span class="st">&#39;db&#39;</span>,<span class="st">&#39;ddb&#39;</span>,<span class="st">&#39;vdb&#39;</span>,<span class="st">&#39;amorlinc&#39;</span>,<span class="st">&#39;amordegrc&#39;</span>,</span>
+<span id="cb83-14"><a href="#cb83-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;coupdaybs&#39;</span>,<span class="st">&#39;coupdays&#39;</span>,<span class="st">&#39;coupdaysnc&#39;</span>,<span class="st">&#39;coupncd&#39;</span>,<span class="st">&#39;couppcd&#39;</span>,<span class="st">&#39;coupnum&#39;</span>,</span>
+<span id="cb83-15"><a href="#cb83-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;price&#39;</span>,<span class="st">&#39;pricedisc&#39;</span>,<span class="st">&#39;pricemat&#39;</span>,<span class="st">&#39;yield&#39;</span>,<span class="st">&#39;yielddisc&#39;</span>,<span class="st">&#39;yieldmat&#39;</span>,</span>
+<span id="cb83-16"><a href="#cb83-16" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;disc&#39;</span>,<span class="st">&#39;intrate&#39;</span>,<span class="st">&#39;received&#39;</span>,<span class="st">&#39;duration&#39;</span>,<span class="st">&#39;mduration&#39;</span>, <span class="st">&#39;convexity&#39;</span>, <span class="st">&#39;accrint&#39;</span>,<span class="st">&#39;accrintm&#39;</span>,</span>
+<span id="cb83-17"><a href="#cb83-17" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;effect&#39;</span>,<span class="st">&#39;nominal&#39;</span>,<span class="st">&#39;dollarde&#39;</span>,<span class="st">&#39;dollarfr&#39;</span>,<span class="st">&#39;fvschedule&#39;</span>,<span class="st">&#39;rri&#39;</span>,<span class="st">&#39;pduration&#39;</span>,</span>
+<span id="cb83-18"><a href="#cb83-18" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;tbillprice&#39;</span>,<span class="st">&#39;tbillyield&#39;</span>,<span class="st">&#39;tbilleq&#39;</span>,</span>
+<span id="cb83-19"><a href="#cb83-19" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;oddfprice&#39;</span>,<span class="st">&#39;oddfyield&#39;</span>,<span class="st">&#39;oddlprice&#39;</span>,<span class="st">&#39;oddlyield&#39;</span></span>
+<span id="cb83-20"><a href="#cb83-20" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb83-21"><a href="#cb83-21" aria-hidden="true" tabindex="-1"></a><span class="co">-- Expected: 56</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
 <section id="key-lessons" class="level1">
@@ -4210,7 +4235,7 @@ Note
 <li><p><strong>VARCHAR reading</strong> — there is no <code>get_string()</code>. Read the raw <code>duckdb_string_t</code> struct using <code>libduckdb_sys</code> helpers. The <code>Datelike</code> trait must be explicitly imported for <code>.year()</code>, <code>.month()</code>, <code>.day()</code> to work on <code>NaiveDate</code>.</p></li>
 <li><p><strong>Sign convention</strong> — all payment functions (PMT, IPMT, PPMT) return <strong>negative values</strong> for cash outflows, exactly matching Excel.</p></li>
 <li><p><strong>Rust 2024 edition</strong> — explicit <code>unsafe {}</code> blocks are required inside <code>unsafe fn</code>. This catches unsafe calls that were previously implicit.</p></li>
-<li><p><strong>Version pinning</strong> — <code>duckdb</code>, <code>duckdb-loadable-macros</code>, and <code>libduckdb-sys</code> must all be on the <strong>same version string</strong>. The version encodes the DuckDB release: <code>1.10501.0</code> = DuckDB v1.5.1.</p></li>
+<li><p><strong>Version pinning</strong> — <code>duckdb</code>, <code>duckdb-loadable-macros</code>, and <code>libduckdb-sys</code> must all be on the <strong>same version string</strong>. The version encodes the DuckDB release: <code>1.10502.0</code> = DuckDB v1.5.2.</p></li>
 <li><p><strong>Day-count conventions</strong> — bond and coupon functions share a central <code>year_frac(d1, d2, basis)</code> helper. Centralising it prevents subtle per-function inconsistencies.</p></li>
 <li><p><strong>Date inputs as VARCHAR</strong> — all date parameters use <code>&#39;YYYY-MM-DD&#39;</code> strings, consistent with the XIRR/XNPV pattern already established in the base project.</p></li>
 <li><p><strong>Iterative solvers</strong> — RATE and YIELD use Newton-Raphson; IRR, XIRR, and odd-period yield functions use bisection. Always handle <code>NULL</code> returns gracefully in queries — they signal non-convergence or invalid input rather than a crash.</p></li>
