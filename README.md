@@ -80,7 +80,7 @@ Financial_Functions/
     ├── cash_flows.rs    ← NPV, IRR, MIRR, XNPV, XIRR
     ├── depreciation.rs  ← SLN, SYD, DB, DDB, VDB, AMORDEGRC, AMORLINC
     ├── coupons.rs       ← COUPDAYBS, COUPDAYS, COUPDAYSNC, COUPNCD, COUPPCD, COUPNUM
-    ├── bonds.rs         ← PRICE, PRICEDISC, PRICEMAT, YIELD, YIELDDISC, YIELDMAT,
+    ├── bonds.rs         ← PRICE, PRICEDISC, PRICEMAT, YIELD, YIELDDISC, YIELDMAT, CONVEXITY,
     │                       DISC, INTRATE, RECEIVED, DURATION, MDURATION, ACCRINT, ACCRINTM
     └── misc.rs          ← EFFECT, NOMINAL, DOLLARDE, DOLLARFR, FVSCHEDULE, RRI, PDURATION,
                             TBILLEQ, TBILLPRICE, TBILLYIELD, ODDFPRICE, ODDFYIELD, ODDLPRICE, ODDLYIELD
@@ -1256,6 +1256,36 @@ SELECT ROUND(mduration('2008-01-01', '2016-01-01', 0.08, 0.09, 2, 1), 4) AS mdur
 -- Result: 5.7355
 ```
 
+## CONVEXITY — Bond Convexity
+
+**DuckDB signature:** `convexity(settlement, maturity, coupon, yld, frequency, basis)`
+
+Measures the curvature of the price/yield relationship — the second-order
+correction that makes price estimates more accurate than duration alone.
+Always positive for a standard option-free bond. Higher convexity means
+the bond gains more when yields fall and loses less when yields rise.
+
+```sql
+-- Convexity of a 10-year 4.375% bond at 4.37% yield
+SELECT ROUND(convexity('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1), 4) AS convexity_result;
+-- Result: 76.9003
+
+-- Duration + convexity gives a better price estimate than duration alone
+WITH base AS (
+    SELECT
+        price('2026-06-30', '2036-06-30', 0.04375, 0.0437, 100, 2, 1)  AS p0,
+        mduration('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1)   AS mdur,
+        convexity('2026-06-30', '2036-06-30', 0.04375, 0.0437, 2, 1)   AS conv,
+        0.0050 AS dy
+)
+SELECT
+    ROUND(-mdur * dy * p0, 4)                                AS duration_only,
+    ROUND((-mdur * dy + 0.5 * conv * dy * dy) * p0, 4)      AS duration_plus_convexity,
+    ROUND(price('2026-06-30','2036-06-30',0.04375,0.0487,100,2,1) - p0, 4) AS actual_change
+FROM base;
+-- duration_only: -4.0017  | duration_plus_convexity: -3.9035 | actual_change: -3.9400
+```
+
 ## ACCRINT — Accrued Interest (Periodic Coupon)
 
 **DuckDB signature:** `accrint(issue, first_interest, settlement, rate, par, frequency, basis)`
@@ -1523,6 +1553,7 @@ pub unsafe fn extension_entrypoint(con: Connection) -> Result<(), Box<dyn Error>
     con.register_scalar_function::<ReceivedFunction>("received")?;
     con.register_scalar_function::<DurationFunction>("duration")?;
     con.register_scalar_function::<MdurationFunction>("mduration")?;
+    con.register_scalar_function::<ConvexityFunction>("convexity")?;
     con.register_scalar_function::<AccrintFunction>("accrint")?;
     con.register_scalar_function::<AccrintmFunction>("accrintm")?;
     // Misc (14)
