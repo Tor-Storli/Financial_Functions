@@ -5,10 +5,10 @@ edition = "2024"
 
 [dependencies]
 # Update these versions to match the 1.105xx series
-duckdb = { version = "1.10504.0", features = ["vtab-loadable", "vscalar"] }
+duckdb = { version = "=1.10502.0", features = ["vtab-loadable", "vscalar"] }
 duckdb-ext-macros = "0.1.0"
-duckdb-loadable-macros = "1.10504.0"
-libduckdb-sys = { version = "1.10504.0", features = ["loadable-extension"] }
+duckdb-loadable-macros = "=1.10502.0"
+libduckdb-sys = { version = "=1.10502.0", features = ["loadable-extension"] }
 financial = "1.1.5"
 chrono = "0.4"
 
