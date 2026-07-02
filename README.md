@@ -1286,6 +1286,47 @@ FROM base;
 -- duration_only: -4.0017  | duration_plus_convexity: -3.9035 | actual_change: -3.9400
 ```
 
+**Another Example:**
+
+Principal = 1,000  
+Coupon rate = 6.00% (annual)  
+Yield = 5.00%  
+Maturity = 5 Years  
+Frequency = 1 (annual)  
+Settlement = 2025-06-30  
+Settlement = 2030-06-30  
+Day-Count Convetion = 1 (Actual/Actual)
+
+::: {.callout-note}
+
+### Day-Count Conventions
+
+| Code | Day-Count Convention |
+| ---- | -------------------- |
+| 0    | US (NASD) 30/360     |
+| 1    | Actual/Actual        |
+| 2    | Actual/360           |
+| 3    | Actual/365           |
+| 4    | European 30/360      |
+
+:::
+
+```sql
+SELECT
+    ROUND(duration('2025-06-30', '2030-06-30', 0.06, 0.05, 1, 1), 4)  AS macaulay_duration,
+    ROUND(mduration('2025-06-30', '2030-06-30', 0.06, 0.05, 1, 1), 4) AS modified_duration,
+    ROUND(convexity('2025-06-30', '2030-06-30', 0.06, 0.05, 1, 1), 4) AS convexity;
+```
+
+```
+┌───────────────────┬───────────────────┬───────────┐
+│ macaulay_duration │ modified_duration │ convexity │
+│      double       │      double       │  double   │
+├───────────────────┼───────────────────┼───────────┤
+│            4.4778 │            4.2645 │   23.4446 │
+└───────────────────┴───────────────────┴───────────┘
+```
+
 ## ACCRINT — Accrued Interest (Periodic Coupon)
 
 **DuckDB signature:** `accrint(issue, first_interest, settlement, rate, par, frequency, basis)`

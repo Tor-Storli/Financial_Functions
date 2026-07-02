@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Tor Storli">
-<meta name="dcterms.date" content="2026-06-30">
+<meta name="dcterms.date" content="2026-07-02">
 
 <title>Bond Investing with SQL</title>
 <style>
@@ -2410,7 +2410,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">June 30, 2026</p>
+      <p class="date">July 2, 2026</p>
     </div>
   </div>
   
@@ -2603,6 +2603,67 @@ window.Quarto = {
 <p>Two bonds can have identical duration but different convexity. The bond with <strong>higher convexity is more valuable</strong> — it loses less when yields rise and gains more when yields fall. This is why portfolio managers actively monitor convexity, not just duration, especially in volatile rate environments.</p>
 </div>
 </div>
+<p><strong>Another Example:</strong></p>
+<p>Principal = 1,000<br>
+Coupon rate = 6.00% (annual)<br>
+Yield = 5.00%<br>
+Maturity = 5 Years<br>
+Frequency = 1 (annual)<br>
+Settlement = 2025-06-30<br>
+Settlement = 2030-06-30<br>
+Day-Count Convetion = 1 (Actual/Actual)</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Day-Count Conventions
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Code</th>
+<th>Day-Count Convention</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>0</td>
+<td>US (NASD) 30/360</td>
+</tr>
+<tr class="even">
+<td>1</td>
+<td>Actual/Actual</td>
+</tr>
+<tr class="odd">
+<td>2</td>
+<td>Actual/360</td>
+</tr>
+<tr class="even">
+<td>3</td>
+<td>Actual/365</td>
+</tr>
+<tr class="odd">
+<td>4</td>
+<td>European 30/360</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(duration(<span class="st">&#39;2025-06-30&#39;</span>, <span class="st">&#39;2030-06-30&#39;</span>, <span class="fl">0.06</span>, <span class="fl">0.05</span>, <span class="dv">1</span>, <span class="dv">1</span>), <span class="dv">4</span>)  <span class="kw">AS</span> macaulay_duration,</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(mduration(<span class="st">&#39;2025-06-30&#39;</span>, <span class="st">&#39;2030-06-30&#39;</span>, <span class="fl">0.06</span>, <span class="fl">0.05</span>, <span class="dv">1</span>, <span class="dv">1</span>), <span class="dv">4</span>) <span class="kw">AS</span> modified_duration,</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(convexity(<span class="st">&#39;2025-06-30&#39;</span>, <span class="st">&#39;2030-06-30&#39;</span>, <span class="fl">0.06</span>, <span class="fl">0.05</span>, <span class="dv">1</span>, <span class="dv">1</span>), <span class="dv">4</span>) <span class="kw">AS</span> convexity;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<pre><code>┌───────────────────┬───────────────────┬───────────┐
+│ macaulay_duration │ modified_duration │ convexity │
+│      double       │      double       │  double   │
+├───────────────────┼───────────────────┼───────────┤
+│            4.4778 │            4.2645 │   23.4446 │
+└───────────────────┴───────────────────┴───────────┘</code></pre>
 <hr>
 </section>
 </section>
@@ -2611,17 +2672,17 @@ window.Quarto = {
 <p>A single bond’s yield tells you the market’s required return for that one maturity. The full picture comes from comparing yields <strong>across</strong> maturities — the yield curve.</p>
 <section id="step-1-load-market-yields-into-a-table" class="level3">
 <h3 class="anchored" data-anchor-id="step-1-load-market-yields-into-a-table">Step 1 — Load Market Yields into a Table</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">TABLE</span> treasury_curve <span class="kw">AS</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> (<span class="kw">VALUES</span></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;3M&#39;</span>,  <span class="fl">0.25</span>, <span class="fl">0.0375</span>),</span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;1Y&#39;</span>,  <span class="fl">1.0</span>,  <span class="fl">0.0393</span>),</span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;2Y&#39;</span>,  <span class="fl">2.0</span>,  <span class="fl">0.0410</span>),</span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;5Y&#39;</span>,  <span class="fl">5.0</span>,  <span class="fl">0.0413</span>),</span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;10Y&#39;</span>, <span class="fl">10.0</span>, <span class="fl">0.0437</span>),</span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;30Y&#39;</span>, <span class="fl">30.0</span>, <span class="fl">0.0487</span>)</span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> t(tenor, years, yield_pct);</span>
-<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> treasury_curve <span class="kw">ORDER</span> <span class="kw">BY</span> years;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">TABLE</span> treasury_curve <span class="kw">AS</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> (<span class="kw">VALUES</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;3M&#39;</span>,  <span class="fl">0.25</span>, <span class="fl">0.0375</span>),</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;1Y&#39;</span>,  <span class="fl">1.0</span>,  <span class="fl">0.0393</span>),</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;2Y&#39;</span>,  <span class="fl">2.0</span>,  <span class="fl">0.0410</span>),</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;5Y&#39;</span>,  <span class="fl">5.0</span>,  <span class="fl">0.0413</span>),</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;10Y&#39;</span>, <span class="fl">10.0</span>, <span class="fl">0.0437</span>),</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;30Y&#39;</span>, <span class="fl">30.0</span>, <span class="fl">0.0487</span>)</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> t(tenor, years, yield_pct);</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> treasury_curve <span class="kw">ORDER</span> <span class="kw">BY</span> years;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <pre><code>┌─────────┬─────────┬────────────┐
 │ tenor   │ years   │ yield_pct  │
 ├─────────┼─────────┼────────────┤
@@ -2635,17 +2696,17 @@ window.Quarto = {
 </section>
 <section id="step-2-interpret-the-shape" class="level3">
 <h3 class="anchored" data-anchor-id="step-2-interpret-the-shape">Step 2 — Interpret the Shape</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>((<span class="kw">SELECT</span> yield_pct <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor<span class="op">=</span><span class="st">&#39;10Y&#39;</span>) <span class="op">-</span></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>          (<span class="kw">SELECT</span> yield_pct <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor<span class="op">=</span><span class="st">&#39;2Y&#39;</span>), <span class="dv">4</span>)  <span class="kw">AS</span> spread_10y_2y,</span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>((<span class="kw">SELECT</span> yield_pct <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor<span class="op">=</span><span class="st">&#39;10Y&#39;</span>) <span class="op">-</span></span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>          (<span class="kw">SELECT</span> yield_pct <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor<span class="op">=</span><span class="st">&#39;3M&#39;</span>), <span class="dv">4</span>)  <span class="kw">AS</span> spread_10y_3m,</span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">CASE</span></span>
-<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">WHEN</span> (<span class="kw">SELECT</span> yield_pct <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor<span class="op">=</span><span class="st">&#39;10Y&#39;</span>) <span class="op">&gt;</span></span>
-<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>             (<span class="kw">SELECT</span> yield_pct <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor<span class="op">=</span><span class="st">&#39;2Y&#39;</span>)</span>
-<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">THEN</span> <span class="st">&#39;Normal (upward-sloping)&#39;</span></span>
-<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">ELSE</span> <span class="st">&#39;Inverted&#39;</span></span>
-<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">END</span> <span class="kw">AS</span> curve_shape;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>((<span class="kw">SELECT</span> yield_pct <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor<span class="op">=</span><span class="st">&#39;10Y&#39;</span>) <span class="op">-</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>          (<span class="kw">SELECT</span> yield_pct <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor<span class="op">=</span><span class="st">&#39;2Y&#39;</span>), <span class="dv">4</span>)  <span class="kw">AS</span> spread_10y_2y,</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>((<span class="kw">SELECT</span> yield_pct <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor<span class="op">=</span><span class="st">&#39;10Y&#39;</span>) <span class="op">-</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>          (<span class="kw">SELECT</span> yield_pct <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor<span class="op">=</span><span class="st">&#39;3M&#39;</span>), <span class="dv">4</span>)  <span class="kw">AS</span> spread_10y_3m,</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">CASE</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">WHEN</span> (<span class="kw">SELECT</span> yield_pct <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor<span class="op">=</span><span class="st">&#39;10Y&#39;</span>) <span class="op">&gt;</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>             (<span class="kw">SELECT</span> yield_pct <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor<span class="op">=</span><span class="st">&#39;2Y&#39;</span>)</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">THEN</span> <span class="st">&#39;Normal (upward-sloping)&#39;</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">ELSE</span> <span class="st">&#39;Inverted&#39;</span></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">END</span> <span class="kw">AS</span> curve_shape;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <pre><code>┌────────────────┬────────────────┬──────────────────────────┐
 │ spread_10y_2y  │ spread_10y_3m  │ curve_shape              │
 ├────────────────┼────────────────┼──────────────────────────┤
@@ -2656,22 +2717,22 @@ window.Quarto = {
 <section id="step-3-price-a-bond-at-each-curve-point" class="level3">
 <h3 class="anchored" data-anchor-id="step-3-price-a-bond-at-each-curve-point">Step 3 — Price a Bond at Each Curve Point</h3>
 <p>What would a hypothetical 5%-coupon bond cost at each maturity on the curve, if it were priced exactly at the curve’s yield for that maturity?</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>    tenor,</span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    years,</span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    yield_pct,</span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(</span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>        price(</span>
-<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>            <span class="st">&#39;2026-06-30&#39;</span>,</span>
-<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>            (<span class="dt">DATE</span> <span class="st">&#39;2026-06-30&#39;</span> <span class="op">+</span> (years <span class="op">*</span> <span class="dv">365</span>):<span class="ch">:INT</span>):<span class="ch">:VARCHAR</span>,</span>
-<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>            <span class="fl">0.05</span>, yield_pct, <span class="dv">100</span>,</span>
-<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>            <span class="cf">CASE</span> <span class="cf">WHEN</span> years <span class="op">&lt;=</span> <span class="dv">1</span> <span class="cf">THEN</span> <span class="dv">1</span> <span class="cf">ELSE</span> <span class="dv">2</span> <span class="cf">END</span>,</span>
-<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>            <span class="dv">1</span></span>
-<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>        ), <span class="dv">4</span></span>
-<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>    ) <span class="kw">AS</span> price_at_5pct_coupon</span>
-<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> treasury_curve</span>
-<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> years <span class="op">&gt;=</span> <span class="dv">1</span>   <span class="co">-- price() needs settlement &lt; maturity by enough margin</span></span>
-<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> years;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    tenor,</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    years,</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>    yield_pct,</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>        price(</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>            <span class="st">&#39;2026-06-30&#39;</span>,</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>            (<span class="dt">DATE</span> <span class="st">&#39;2026-06-30&#39;</span> <span class="op">+</span> (years <span class="op">*</span> <span class="dv">365</span>):<span class="ch">:INT</span>):<span class="ch">:VARCHAR</span>,</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>            <span class="fl">0.05</span>, yield_pct, <span class="dv">100</span>,</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>            <span class="cf">CASE</span> <span class="cf">WHEN</span> years <span class="op">&lt;=</span> <span class="dv">1</span> <span class="cf">THEN</span> <span class="dv">1</span> <span class="cf">ELSE</span> <span class="dv">2</span> <span class="cf">END</span>,</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>            <span class="dv">1</span></span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>        ), <span class="dv">4</span></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>    ) <span class="kw">AS</span> price_at_5pct_coupon</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> treasury_curve</span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> years <span class="op">&gt;=</span> <span class="dv">1</span>   <span class="co">-- price() needs settlement &lt; maturity by enough margin</span></span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> years;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <pre><code>┌─────────┬─────────┬────────────┬───────────────────────┐
 │ tenor   │ years   │ yield_pct  │ price_at_5pct_coupon  │
 ├─────────┼─────────┼────────────┼───────────────────────┤
@@ -2690,9 +2751,9 @@ window.Quarto = {
 <p>T-bills don’t pay coupons — they are sold at a discount and mature at face value. Three functions handle this segment: <code>tbillprice</code>, <code>tbillyield</code>, and <code>tbilleq</code>.</p>
 <section id="step-1-price-a-3-month-t-bill-from-its-discount-rate" class="level3">
 <h3 class="anchored" data-anchor-id="step-1-price-a-3-month-t-bill-from-its-discount-rate">Step 1 — Price a 3-Month T-Bill from Its Discount Rate</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    tbillprice(<span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2026-09-30&#39;</span>, <span class="fl">0.0375</span>), <span class="dv">4</span></span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> tbill_price;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>    tbillprice(<span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2026-09-30&#39;</span>, <span class="fl">0.0375</span>), <span class="dv">4</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> tbill_price;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <pre><code>┌──────────────┐
 │ tbill_price  │
 ├──────────────┤
@@ -2702,9 +2763,9 @@ window.Quarto = {
 <section id="step-2-convert-back-discount-rate-to-yield" class="level3">
 <h3 class="anchored" data-anchor-id="step-2-convert-back-discount-rate-to-yield">Step 2 — Convert Back: Discount Rate to Yield</h3>
 <p>Discount rate is not directly comparable to a coupon bond’s yield because it is computed on <strong>face value</strong> rather than <strong>purchase price</strong>, and uses a 360-day year rather than 365. <code>tbillyield</code> and <code>tbilleq</code> solve both problems.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(tbillyield(<span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2026-09-30&#39;</span>, <span class="fl">99.0729</span>), <span class="dv">4</span>)  <span class="kw">AS</span> investment_yield,</span>
-<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(tbilleq(<span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2026-09-30&#39;</span>, <span class="fl">0.0375</span>), <span class="dv">4</span>)      <span class="kw">AS</span> bond_equivalent_yield;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(tbillyield(<span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2026-09-30&#39;</span>, <span class="fl">99.0729</span>), <span class="dv">4</span>)  <span class="kw">AS</span> investment_yield,</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(tbilleq(<span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2026-09-30&#39;</span>, <span class="fl">0.0375</span>), <span class="dv">4</span>)      <span class="kw">AS</span> bond_equivalent_yield;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <pre><code>┌────────────────────┬────────────────────────┐
 │ investment_yield   │ bond_equivalent_yield  │
 ├────────────────────┼────────────────────────┤
@@ -2729,28 +2790,28 @@ window.Quarto = {
 <section id="part-4-corporate-bonds-and-credit-spread" class="level2">
 <h2 class="anchored" data-anchor-id="part-4-corporate-bonds-and-credit-spread">Part 4 — Corporate Bonds and Credit Spread</h2>
 <p>Corporate bonds trade at a <strong>spread</strong> over the comparable-maturity Treasury to compensate investors for credit risk. Build a small portfolio spanning credit quality:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">TABLE</span> corporate_bonds <span class="kw">AS</span></span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> (<span class="kw">VALUES</span></span>
-<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;Apple Inc&#39;</span>,        <span class="st">&#39;AAA&#39;</span>, <span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2036-06-30&#39;</span>, <span class="fl">0.0440</span>, <span class="fl">0.0010</span>),</span>
-<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;Microsoft Corp&#39;</span>,   <span class="st">&#39;AAA&#39;</span>, <span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2036-06-30&#39;</span>, <span class="fl">0.0445</span>, <span class="fl">0.0008</span>),</span>
-<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;Ford Motor Co&#39;</span>,    <span class="st">&#39;BB+&#39;</span>, <span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2036-06-30&#39;</span>, <span class="fl">0.0625</span>, <span class="fl">0.0188</span>),</span>
-<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;Carnival Corp&#39;</span>,    <span class="st">&#39;BB-&#39;</span>, <span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2036-06-30&#39;</span>, <span class="fl">0.0710</span>, <span class="fl">0.0273</span>)</span>
-<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> t(issuer, rating, settlement, maturity, coupon, credit_spread);</span>
-<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> corporate_bonds;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">TABLE</span> corporate_bonds <span class="kw">AS</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> (<span class="kw">VALUES</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;Apple Inc&#39;</span>,        <span class="st">&#39;AAA&#39;</span>, <span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2036-06-30&#39;</span>, <span class="fl">0.0440</span>, <span class="fl">0.0010</span>),</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;Microsoft Corp&#39;</span>,   <span class="st">&#39;AAA&#39;</span>, <span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2036-06-30&#39;</span>, <span class="fl">0.0445</span>, <span class="fl">0.0008</span>),</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;Ford Motor Co&#39;</span>,    <span class="st">&#39;BB+&#39;</span>, <span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2036-06-30&#39;</span>, <span class="fl">0.0625</span>, <span class="fl">0.0188</span>),</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;Carnival Corp&#39;</span>,    <span class="st">&#39;BB-&#39;</span>, <span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2036-06-30&#39;</span>, <span class="fl">0.0710</span>, <span class="fl">0.0273</span>)</span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> t(issuer, rating, settlement, maturity, coupon, credit_spread);</span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> corporate_bonds;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <section id="step-1-imply-each-bonds-yield-from-the-treasury-curve-spread" class="level3">
 <h3 class="anchored" data-anchor-id="step-1-imply-each-bonds-yield-from-the-treasury-curve-spread">Step 1 — Imply Each Bond’s Yield from the Treasury Curve + Spread</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> base <span class="kw">AS</span> (</span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> yield_pct <span class="kw">AS</span> treasury_10y <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor <span class="op">=</span> <span class="st">&#39;10Y&#39;</span></span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>    issuer,</span>
-<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>    rating,</span>
-<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>    coupon,</span>
-<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>    credit_spread,</span>
-<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>((<span class="kw">SELECT</span> treasury_10y <span class="kw">FROM</span> base) <span class="op">+</span> credit_spread, <span class="dv">4</span>) <span class="kw">AS</span> implied_yield</span>
-<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> corporate_bonds</span>
-<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> credit_spread;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> base <span class="kw">AS</span> (</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> yield_pct <span class="kw">AS</span> treasury_10y <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor <span class="op">=</span> <span class="st">&#39;10Y&#39;</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>    issuer,</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>    rating,</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>    coupon,</span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>    credit_spread,</span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>((<span class="kw">SELECT</span> treasury_10y <span class="kw">FROM</span> base) <span class="op">+</span> credit_spread, <span class="dv">4</span>) <span class="kw">AS</span> implied_yield</span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> corporate_bonds</span>
+<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> credit_spread;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <pre><code>┌─────────────────┬─────────┬─────────┬────────────────┬────────────────┐
 │ issuer          │ rating  │ coupon  │ credit_spread  │ implied_yield  │
 ├─────────────────┼─────────┼─────────┼────────────────┼────────────────┤
@@ -2762,23 +2823,23 @@ window.Quarto = {
 </section>
 <section id="step-2-price-duration-and-convexity-for-every-bond-at-once" class="level3">
 <h3 class="anchored" data-anchor-id="step-2-price-duration-and-convexity-for-every-bond-at-once">Step 2 — Price, Duration, and Convexity for Every Bond at Once</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> base <span class="kw">AS</span> (</span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> yield_pct <span class="kw">AS</span> treasury_10y <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor <span class="op">=</span> <span class="st">&#39;10Y&#39;</span></span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>    issuer,</span>
-<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>    rating,</span>
-<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(price(settlement, maturity, coupon,</span>
-<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>                (<span class="kw">SELECT</span> treasury_10y <span class="kw">FROM</span> base) <span class="op">+</span> credit_spread,</span>
-<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>                <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">1</span>), <span class="dv">4</span>)                                            <span class="kw">AS</span> clean_price,</span>
-<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(mduration(settlement, maturity, coupon,</span>
-<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>                (<span class="kw">SELECT</span> treasury_10y <span class="kw">FROM</span> base) <span class="op">+</span> credit_spread,</span>
-<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>                <span class="dv">2</span>, <span class="dv">1</span>), <span class="dv">4</span>)                                                 <span class="kw">AS</span> modified_duration,</span>
-<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(convexity(settlement, maturity, coupon,</span>
-<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a>                (<span class="kw">SELECT</span> treasury_10y <span class="kw">FROM</span> base) <span class="op">+</span> credit_spread,</span>
-<span id="cb25-15"><a href="#cb25-15" aria-hidden="true" tabindex="-1"></a>                <span class="dv">2</span>, <span class="dv">1</span>), <span class="dv">4</span>)                                                 <span class="kw">AS</span> convexity</span>
-<span id="cb25-16"><a href="#cb25-16" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> corporate_bonds</span>
-<span id="cb25-17"><a href="#cb25-17" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> credit_spread;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> base <span class="kw">AS</span> (</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> yield_pct <span class="kw">AS</span> treasury_10y <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor <span class="op">=</span> <span class="st">&#39;10Y&#39;</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>    issuer,</span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>    rating,</span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(price(settlement, maturity, coupon,</span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>                (<span class="kw">SELECT</span> treasury_10y <span class="kw">FROM</span> base) <span class="op">+</span> credit_spread,</span>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>                <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">1</span>), <span class="dv">4</span>)                                            <span class="kw">AS</span> clean_price,</span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(mduration(settlement, maturity, coupon,</span>
+<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a>                (<span class="kw">SELECT</span> treasury_10y <span class="kw">FROM</span> base) <span class="op">+</span> credit_spread,</span>
+<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a>                <span class="dv">2</span>, <span class="dv">1</span>), <span class="dv">4</span>)                                                 <span class="kw">AS</span> modified_duration,</span>
+<span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(convexity(settlement, maturity, coupon,</span>
+<span id="cb27-14"><a href="#cb27-14" aria-hidden="true" tabindex="-1"></a>                (<span class="kw">SELECT</span> treasury_10y <span class="kw">FROM</span> base) <span class="op">+</span> credit_spread,</span>
+<span id="cb27-15"><a href="#cb27-15" aria-hidden="true" tabindex="-1"></a>                <span class="dv">2</span>, <span class="dv">1</span>), <span class="dv">4</span>)                                                 <span class="kw">AS</span> convexity</span>
+<span id="cb27-16"><a href="#cb27-16" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> corporate_bonds</span>
+<span id="cb27-17"><a href="#cb27-17" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> credit_spread;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <pre><code>┌─────────────────┬─────────┬──────────────┬─────────────────────┬────────────┐
 │ issuer          │ rating  │ clean_price  │ modified_duration   │ convexity  │
 ├─────────────────┼─────────┼──────────────┼─────────────────────┼────────────┤
@@ -2804,29 +2865,29 @@ window.Quarto = {
 <section id="step-3-stress-test-the-whole-portfolio-for-a-parallel-shift" class="level3">
 <h3 class="anchored" data-anchor-id="step-3-stress-test-the-whole-portfolio-for-a-parallel-shift">Step 3 — Stress-Test the Whole Portfolio for a Parallel Shift</h3>
 <p>If Treasury yields rise 100 basis points across the board and credit spreads stay constant, estimate the price impact on each bond using duration + convexity:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> base <span class="kw">AS</span> (</span>
-<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> yield_pct <span class="kw">AS</span> treasury_10y <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor <span class="op">=</span> <span class="st">&#39;10Y&#39;</span></span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>),</span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>priced <span class="kw">AS</span> (</span>
-<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span></span>
-<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>        issuer,</span>
-<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a>        rating,</span>
-<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>        price(settlement, maturity, coupon,</span>
-<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>              (<span class="kw">SELECT</span> treasury_10y <span class="kw">FROM</span> base) <span class="op">+</span> credit_spread, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">1</span>)    <span class="kw">AS</span> p0,</span>
-<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a>        mduration(settlement, maturity, coupon,</span>
-<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a>              (<span class="kw">SELECT</span> treasury_10y <span class="kw">FROM</span> base) <span class="op">+</span> credit_spread, <span class="dv">2</span>, <span class="dv">1</span>)          <span class="kw">AS</span> mdur,</span>
-<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a>        convexity(settlement, maturity, coupon,</span>
-<span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a>              (<span class="kw">SELECT</span> treasury_10y <span class="kw">FROM</span> base) <span class="op">+</span> credit_spread, <span class="dv">2</span>, <span class="dv">1</span>)          <span class="kw">AS</span> conv</span>
-<span id="cb27-14"><a href="#cb27-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">FROM</span> corporate_bonds</span>
-<span id="cb27-15"><a href="#cb27-15" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb27-16"><a href="#cb27-16" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb27-17"><a href="#cb27-17" aria-hidden="true" tabindex="-1"></a>    issuer,</span>
-<span id="cb27-18"><a href="#cb27-18" aria-hidden="true" tabindex="-1"></a>    rating,</span>
-<span id="cb27-19"><a href="#cb27-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(p0, <span class="dv">4</span>)                                                <span class="kw">AS</span> price_today,</span>
-<span id="cb27-20"><a href="#cb27-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>((<span class="op">-</span>mdur <span class="op">*</span> <span class="fl">0.01</span> <span class="op">+</span> <span class="fl">0.5</span> <span class="op">*</span> conv <span class="op">*</span> <span class="fl">0.01</span> <span class="op">*</span> <span class="fl">0.01</span>) <span class="op">*</span> p0, <span class="dv">4</span>)    <span class="kw">AS</span> est_price_change,</span>
-<span id="cb27-21"><a href="#cb27-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(p0 <span class="op">+</span> (<span class="op">-</span>mdur <span class="op">*</span> <span class="fl">0.01</span> <span class="op">+</span> <span class="fl">0.5</span> <span class="op">*</span> conv <span class="op">*</span> <span class="fl">0.01</span> <span class="op">*</span> <span class="fl">0.01</span>) <span class="op">*</span> p0, <span class="dv">4</span>) <span class="kw">AS</span> est_price_after_shock</span>
-<span id="cb27-22"><a href="#cb27-22" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> priced</span>
-<span id="cb27-23"><a href="#cb27-23" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> est_price_change;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> base <span class="kw">AS</span> (</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> yield_pct <span class="kw">AS</span> treasury_10y <span class="kw">FROM</span> treasury_curve <span class="kw">WHERE</span> tenor <span class="op">=</span> <span class="st">&#39;10Y&#39;</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>),</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>priced <span class="kw">AS</span> (</span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span></span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>        issuer,</span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>        rating,</span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>        price(settlement, maturity, coupon,</span>
+<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a>              (<span class="kw">SELECT</span> treasury_10y <span class="kw">FROM</span> base) <span class="op">+</span> credit_spread, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">1</span>)    <span class="kw">AS</span> p0,</span>
+<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a>        mduration(settlement, maturity, coupon,</span>
+<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a>              (<span class="kw">SELECT</span> treasury_10y <span class="kw">FROM</span> base) <span class="op">+</span> credit_spread, <span class="dv">2</span>, <span class="dv">1</span>)          <span class="kw">AS</span> mdur,</span>
+<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a>        convexity(settlement, maturity, coupon,</span>
+<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a>              (<span class="kw">SELECT</span> treasury_10y <span class="kw">FROM</span> base) <span class="op">+</span> credit_spread, <span class="dv">2</span>, <span class="dv">1</span>)          <span class="kw">AS</span> conv</span>
+<span id="cb29-14"><a href="#cb29-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">FROM</span> corporate_bonds</span>
+<span id="cb29-15"><a href="#cb29-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb29-16"><a href="#cb29-16" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb29-17"><a href="#cb29-17" aria-hidden="true" tabindex="-1"></a>    issuer,</span>
+<span id="cb29-18"><a href="#cb29-18" aria-hidden="true" tabindex="-1"></a>    rating,</span>
+<span id="cb29-19"><a href="#cb29-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(p0, <span class="dv">4</span>)                                                <span class="kw">AS</span> price_today,</span>
+<span id="cb29-20"><a href="#cb29-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>((<span class="op">-</span>mdur <span class="op">*</span> <span class="fl">0.01</span> <span class="op">+</span> <span class="fl">0.5</span> <span class="op">*</span> conv <span class="op">*</span> <span class="fl">0.01</span> <span class="op">*</span> <span class="fl">0.01</span>) <span class="op">*</span> p0, <span class="dv">4</span>)    <span class="kw">AS</span> est_price_change,</span>
+<span id="cb29-21"><a href="#cb29-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(p0 <span class="op">+</span> (<span class="op">-</span>mdur <span class="op">*</span> <span class="fl">0.01</span> <span class="op">+</span> <span class="fl">0.5</span> <span class="op">*</span> conv <span class="op">*</span> <span class="fl">0.01</span> <span class="op">*</span> <span class="fl">0.01</span>) <span class="op">*</span> p0, <span class="dv">4</span>) <span class="kw">AS</span> est_price_after_shock</span>
+<span id="cb29-22"><a href="#cb29-22" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> priced</span>
+<span id="cb29-23"><a href="#cb29-23" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> est_price_change;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <pre><code>┌─────────────────┬──────────────┬───────────────────┬─────────────────────────┐
 │ issuer          │ price_today  │ est_price_change  │ est_price_after_shock   │
 ├─────────────────┼──────────────┼────────────────────┼─────────────────────────┤
@@ -2842,10 +2903,10 @@ window.Quarto = {
 <section id="part-5-accrued-interest-and-the-dirty-price" class="level2">
 <h2 class="anchored" data-anchor-id="part-5-accrued-interest-and-the-dirty-price">Part 5 — Accrued Interest and the Dirty Price</h2>
 <p>The <code>price()</code> function returns the <strong>clean price</strong> — the quoted market price excluding interest that has accrued since the last coupon. When you actually settle a trade, you pay the clean price <em>plus</em> accrued interest (the “dirty” or “full” price).</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Apple bond: coupon paid annually for simplicity, last coupon 2026-01-15</span></span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(price(<span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2036-01-15&#39;</span>, <span class="fl">0.0440</span>, <span class="fl">0.0447</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">1</span>), <span class="dv">4</span>) <span class="kw">AS</span> clean_price,</span>
-<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(accrint(<span class="st">&#39;2026-01-15&#39;</span>, <span class="st">&#39;2026-07-15&#39;</span>, <span class="st">&#39;2026-06-30&#39;</span>, <span class="fl">0.0440</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">0</span>), <span class="dv">4</span>) <span class="kw">AS</span> accrued_interest;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Apple bond: coupon paid annually for simplicity, last coupon 2026-01-15</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(price(<span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2036-01-15&#39;</span>, <span class="fl">0.0440</span>, <span class="fl">0.0447</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">1</span>), <span class="dv">4</span>) <span class="kw">AS</span> clean_price,</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(accrint(<span class="st">&#39;2026-01-15&#39;</span>, <span class="st">&#39;2026-07-15&#39;</span>, <span class="st">&#39;2026-06-30&#39;</span>, <span class="fl">0.0440</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">0</span>), <span class="dv">4</span>) <span class="kw">AS</span> accrued_interest;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <pre><code>┌──────────────┬────────────────────┐
 │ clean_price  │ accrued_interest   │
 ├──────────────┼────────────────────┤
@@ -2859,137 +2920,137 @@ window.Quarto = {
 <p>This tutorial uses a new function, <code>convexity()</code>, that did not exist in the original 55-function extension. It follows the exact same <code>VScalar</code> pattern as <code>duration()</code> and <code>mduration()</code> in <code>src/bonds.rs</code>.</p>
 <section id="rust-source" class="level3">
 <h3 class="anchored" data-anchor-id="rust-source">Rust Source</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co">// ── Add to src/bonds.rs ───────────────────────────────────────────────────────</span></span>
-<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="co">//</span></span>
-<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a><span class="co">// CONVEXITY — measures the curvature of the price/yield relationship.</span></span>
-<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Duration alone is a linear (first-order) approximation of how price moves</span></span>
-<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a><span class="co">// with yield. Convexity is the second-order correction: it captures the fact</span></span>
-<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a><span class="co">// that bond prices fall less than duration predicts when yields rise, and</span></span>
-<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a><span class="co">// rise more than duration predicts when yields fall.</span></span>
-<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a><span class="co">//</span></span>
-<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Formula (annual coupon, periodic compounding):</span></span>
-<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a><span class="co">//   Convexity = (1 / (P * (1+y/k)^2)) * sum_{t=1}^{n} [ CF_t * t * (t+1) / (1+y/k)^t ] / k^2</span></span>
-<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a><span class="co">//</span></span>
-<span id="cb31-12"><a href="#cb31-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Where:</span></span>
-<span id="cb31-13"><a href="#cb31-13" aria-hidden="true" tabindex="-1"></a><span class="co">//   P = bond price (dirty, full price)</span></span>
-<span id="cb31-14"><a href="#cb31-14" aria-hidden="true" tabindex="-1"></a><span class="co">//   y = yield</span></span>
-<span id="cb31-15"><a href="#cb31-15" aria-hidden="true" tabindex="-1"></a><span class="co">//   k = compounding frequency</span></span>
-<span id="cb31-16"><a href="#cb31-16" aria-hidden="true" tabindex="-1"></a><span class="co">//   CF_t = cash flow at period t (coupon, or coupon+redemption at maturity)</span></span>
-<span id="cb31-17"><a href="#cb31-17" aria-hidden="true" tabindex="-1"></a><span class="co">//   n = number of remaining coupon periods</span></span>
-<span id="cb31-18"><a href="#cb31-18" aria-hidden="true" tabindex="-1"></a><span class="co">//</span></span>
-<span id="cb31-19"><a href="#cb31-19" aria-hidden="true" tabindex="-1"></a><span class="co">// This mirrors the same VScalar pattern as duration() and mduration() in</span></span>
-<span id="cb31-20"><a href="#cb31-20" aria-hidden="true" tabindex="-1"></a><span class="co">// this file — reuses the existing coupon schedule builder.</span></span>
-<span id="cb31-21"><a href="#cb31-21" aria-hidden="true" tabindex="-1"></a><span class="co">// ─────────────────────────────────────────────────────────────────────────────</span></span>
-<span id="cb31-22"><a href="#cb31-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-23"><a href="#cb31-23" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">duckdb::core::</span><span class="op">{</span>DataChunkHandle<span class="op">,</span> LogicalTypeHandle<span class="op">,</span> LogicalTypeId<span class="op">};</span></span>
-<span id="cb31-24"><a href="#cb31-24" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">duckdb::vscalar::</span><span class="op">{</span>ScalarFunctionSignature<span class="op">,</span> VScalar<span class="op">};</span></span>
-<span id="cb31-25"><a href="#cb31-25" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">duckdb::vtab::arrow::</span>WritableVector<span class="op">;</span></span>
-<span id="cb31-26"><a href="#cb31-26" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">std::error::</span><span class="bu">Error</span><span class="op">;</span></span>
-<span id="cb31-27"><a href="#cb31-27" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">chrono::</span>NaiveDate<span class="op">;</span></span>
-<span id="cb31-28"><a href="#cb31-28" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="kw">crate</span><span class="pp">::helpers::</span><span class="op">{</span>read_varchar<span class="op">,</span> parse_date<span class="op">,</span> write_f64<span class="op">,</span> year_frac<span class="op">,</span> freq_per_year<span class="op">};</span></span>
-<span id="cb31-29"><a href="#cb31-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-30"><a href="#cb31-30" aria-hidden="true" tabindex="-1"></a><span class="kw">fn</span> dbl() <span class="op">-&gt;</span> LogicalTypeHandle <span class="op">{</span> <span class="pp">LogicalTypeHandle::</span>from(<span class="pp">LogicalTypeId::</span>Double) <span class="op">}</span></span>
-<span id="cb31-31"><a href="#cb31-31" aria-hidden="true" tabindex="-1"></a><span class="kw">fn</span> varchar() <span class="op">-&gt;</span> LogicalTypeHandle <span class="op">{</span> <span class="pp">LogicalTypeHandle::</span>from(<span class="pp">LogicalTypeId::</span>Varchar) <span class="op">}</span></span>
-<span id="cb31-32"><a href="#cb31-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-33"><a href="#cb31-33" aria-hidden="true" tabindex="-1"></a><span class="co">/// Build the remaining coupon period schedule (year fractions from settlement)</span></span>
-<span id="cb31-34"><a href="#cb31-34" aria-hidden="true" tabindex="-1"></a><span class="co">/// for a standard periodic-coupon bond. Reuses the same logic pattern as</span></span>
-<span id="cb31-35"><a href="#cb31-35" aria-hidden="true" tabindex="-1"></a><span class="co">/// duration()/mduration() — walks backward from maturity in frequency steps.</span></span>
-<span id="cb31-36"><a href="#cb31-36" aria-hidden="true" tabindex="-1"></a><span class="kw">fn</span> coupon_schedule(settle<span class="op">:</span> NaiveDate<span class="op">,</span> maturity<span class="op">:</span> NaiveDate<span class="op">,</span> freq<span class="op">:</span> <span class="dt">i32</span>) <span class="op">-&gt;</span> <span class="dt">Vec</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb31-37"><a href="#cb31-37" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> step_months <span class="op">=</span> <span class="dv">12</span> <span class="op">/</span> freq<span class="op">;</span></span>
-<span id="cb31-38"><a href="#cb31-38" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> <span class="kw">mut</span> dates<span class="op">:</span> <span class="dt">Vec</span><span class="op">&lt;</span>NaiveDate<span class="op">&gt;</span> <span class="op">=</span> <span class="dt">Vec</span><span class="pp">::</span>new()<span class="op">;</span></span>
-<span id="cb31-39"><a href="#cb31-39" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> <span class="kw">mut</span> d <span class="op">=</span> maturity<span class="op">;</span></span>
-<span id="cb31-40"><a href="#cb31-40" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> d <span class="op">&gt;</span> settle <span class="op">{</span></span>
-<span id="cb31-41"><a href="#cb31-41" aria-hidden="true" tabindex="-1"></a>        dates<span class="op">.</span>push(d)<span class="op">;</span></span>
-<span id="cb31-42"><a href="#cb31-42" aria-hidden="true" tabindex="-1"></a>        d <span class="op">=</span> <span class="kw">crate</span><span class="pp">::helpers::</span>add_months(d<span class="op">,</span> <span class="op">-</span>step_months)<span class="op">;</span></span>
-<span id="cb31-43"><a href="#cb31-43" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb31-44"><a href="#cb31-44" aria-hidden="true" tabindex="-1"></a>    dates<span class="op">.</span>reverse()<span class="op">;</span></span>
-<span id="cb31-45"><a href="#cb31-45" aria-hidden="true" tabindex="-1"></a>    dates<span class="op">.</span>iter()</span>
-<span id="cb31-46"><a href="#cb31-46" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span>map(<span class="op">|&amp;</span>cd<span class="op">|</span> year_frac(settle<span class="op">,</span> cd<span class="op">,</span> <span class="dv">1</span>)) <span class="co">// actual/actual for the curvature calc</span></span>
-<span id="cb31-47"><a href="#cb31-47" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span>collect()</span>
-<span id="cb31-48"><a href="#cb31-48" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb31-49"><a href="#cb31-49" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-50"><a href="#cb31-50" aria-hidden="true" tabindex="-1"></a><span class="co">/// Pure-Rust convexity calculation, reusable from both the VScalar wrapper</span></span>
-<span id="cb31-51"><a href="#cb31-51" aria-hidden="true" tabindex="-1"></a><span class="co">/// and any future LIST/batch variant.</span></span>
-<span id="cb31-52"><a href="#cb31-52" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">fn</span> calc_convexity(</span>
-<span id="cb31-53"><a href="#cb31-53" aria-hidden="true" tabindex="-1"></a>    settle<span class="op">:</span> NaiveDate<span class="op">,</span></span>
-<span id="cb31-54"><a href="#cb31-54" aria-hidden="true" tabindex="-1"></a>    maturity<span class="op">:</span> NaiveDate<span class="op">,</span></span>
-<span id="cb31-55"><a href="#cb31-55" aria-hidden="true" tabindex="-1"></a>    coupon<span class="op">:</span> <span class="dt">f64</span><span class="op">,</span></span>
-<span id="cb31-56"><a href="#cb31-56" aria-hidden="true" tabindex="-1"></a>    yld<span class="op">:</span> <span class="dt">f64</span><span class="op">,</span></span>
-<span id="cb31-57"><a href="#cb31-57" aria-hidden="true" tabindex="-1"></a>    freq<span class="op">:</span> <span class="dt">i32</span><span class="op">,</span></span>
-<span id="cb31-58"><a href="#cb31-58" aria-hidden="true" tabindex="-1"></a>) <span class="op">-&gt;</span> <span class="dt">f64</span> <span class="op">{</span></span>
-<span id="cb31-59"><a href="#cb31-59" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> times <span class="op">=</span> coupon_schedule(settle<span class="op">,</span> maturity<span class="op">,</span> freq)<span class="op">;</span></span>
-<span id="cb31-60"><a href="#cb31-60" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> times<span class="op">.</span>is_empty() <span class="op">{</span> <span class="cf">return</span> <span class="dt">f64</span><span class="pp">::</span><span class="cn">NAN</span><span class="op">;</span> <span class="op">}</span></span>
-<span id="cb31-61"><a href="#cb31-61" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-62"><a href="#cb31-62" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> k <span class="op">=</span> freq <span class="kw">as</span> <span class="dt">f64</span><span class="op">;</span></span>
-<span id="cb31-63"><a href="#cb31-63" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> coupon_pmt <span class="op">=</span> <span class="dv">100.0</span> <span class="op">*</span> coupon <span class="op">/</span> k<span class="op">;</span></span>
-<span id="cb31-64"><a href="#cb31-64" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> n <span class="op">=</span> times<span class="op">.</span>len()<span class="op">;</span></span>
-<span id="cb31-65"><a href="#cb31-65" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-66"><a href="#cb31-66" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> <span class="kw">mut</span> price <span class="op">=</span> <span class="dv">0.0f64</span><span class="op">;</span></span>
-<span id="cb31-67"><a href="#cb31-67" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> <span class="kw">mut</span> convex_sum <span class="op">=</span> <span class="dv">0.0f64</span><span class="op">;</span></span>
-<span id="cb31-68"><a href="#cb31-68" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-69"><a href="#cb31-69" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (idx<span class="op">,</span> <span class="op">&amp;</span>t) <span class="kw">in</span> times<span class="op">.</span>iter()<span class="op">.</span>enumerate() <span class="op">{</span></span>
-<span id="cb31-70"><a href="#cb31-70" aria-hidden="true" tabindex="-1"></a>        <span class="kw">let</span> period <span class="op">=</span> t <span class="op">*</span> k<span class="op">;</span> <span class="co">// period number (may be fractional for first period)</span></span>
-<span id="cb31-71"><a href="#cb31-71" aria-hidden="true" tabindex="-1"></a>        <span class="kw">let</span> cf <span class="op">=</span> <span class="cf">if</span> idx <span class="op">==</span> n <span class="op">-</span> <span class="dv">1</span> <span class="op">{</span> coupon_pmt <span class="op">+</span> <span class="dv">100.0</span> <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span> coupon_pmt <span class="op">};</span></span>
-<span id="cb31-72"><a href="#cb31-72" aria-hidden="true" tabindex="-1"></a>        <span class="kw">let</span> disc <span class="op">=</span> (<span class="dv">1.0</span> <span class="op">+</span> yld <span class="op">/</span> k)<span class="op">.</span>powf(period)<span class="op">;</span></span>
-<span id="cb31-73"><a href="#cb31-73" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-74"><a href="#cb31-74" aria-hidden="true" tabindex="-1"></a>        price <span class="op">+=</span> cf <span class="op">/</span> disc<span class="op">;</span></span>
-<span id="cb31-75"><a href="#cb31-75" aria-hidden="true" tabindex="-1"></a>        convex_sum <span class="op">+=</span> cf <span class="op">*</span> period <span class="op">*</span> (period <span class="op">+</span> <span class="dv">1.0</span>) <span class="op">/</span> disc<span class="op">;</span></span>
-<span id="cb31-76"><a href="#cb31-76" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb31-77"><a href="#cb31-77" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-78"><a href="#cb31-78" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> price<span class="op">.</span>abs() <span class="op">&lt;</span> <span class="dv">1e-12</span> <span class="op">{</span> <span class="cf">return</span> <span class="dt">f64</span><span class="pp">::</span><span class="cn">NAN</span><span class="op">;</span> <span class="op">}</span></span>
-<span id="cb31-79"><a href="#cb31-79" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-80"><a href="#cb31-80" aria-hidden="true" tabindex="-1"></a>    convex_sum <span class="op">/</span> (price <span class="op">*</span> (<span class="dv">1.0</span> <span class="op">+</span> yld <span class="op">/</span> k)<span class="op">.</span>powi(<span class="dv">2</span>) <span class="op">*</span> k <span class="op">*</span> k)</span>
-<span id="cb31-81"><a href="#cb31-81" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb31-82"><a href="#cb31-82" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-83"><a href="#cb31-83" aria-hidden="true" tabindex="-1"></a><span class="co">// ── CONVEXITY ────────────────────────────────────────────────────────────────</span></span>
-<span id="cb31-84"><a href="#cb31-84" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">struct</span> ConvexityFunction<span class="op">;</span></span>
-<span id="cb31-85"><a href="#cb31-85" aria-hidden="true" tabindex="-1"></a><span class="kw">impl</span> VScalar <span class="cf">for</span> ConvexityFunction <span class="op">{</span></span>
-<span id="cb31-86"><a href="#cb31-86" aria-hidden="true" tabindex="-1"></a>    <span class="kw">type</span> State <span class="op">=</span> ()<span class="op">;</span></span>
-<span id="cb31-87"><a href="#cb31-87" aria-hidden="true" tabindex="-1"></a>    <span class="kw">fn</span> signatures() <span class="op">-&gt;</span> <span class="dt">Vec</span><span class="op">&lt;</span>ScalarFunctionSignature<span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb31-88"><a href="#cb31-88" aria-hidden="true" tabindex="-1"></a>        <span class="pp">vec!</span>[<span class="pp">ScalarFunctionSignature::</span>exact(</span>
-<span id="cb31-89"><a href="#cb31-89" aria-hidden="true" tabindex="-1"></a>            <span class="pp">vec!</span>[varchar()<span class="op">,</span> varchar()<span class="op">,</span> dbl()<span class="op">,</span> dbl()<span class="op">,</span> dbl()<span class="op">,</span> dbl()]<span class="op">,</span></span>
-<span id="cb31-90"><a href="#cb31-90" aria-hidden="true" tabindex="-1"></a>            dbl()<span class="op">,</span></span>
-<span id="cb31-91"><a href="#cb31-91" aria-hidden="true" tabindex="-1"></a>        )]</span>
-<span id="cb31-92"><a href="#cb31-92" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb31-93"><a href="#cb31-93" aria-hidden="true" tabindex="-1"></a>    <span class="kw">unsafe</span> <span class="kw">fn</span> invoke(</span>
-<span id="cb31-94"><a href="#cb31-94" aria-hidden="true" tabindex="-1"></a>        _<span class="op">:</span> <span class="op">&amp;</span>()<span class="op">,</span></span>
-<span id="cb31-95"><a href="#cb31-95" aria-hidden="true" tabindex="-1"></a>        input<span class="op">:</span>  <span class="op">&amp;</span><span class="kw">mut</span> DataChunkHandle<span class="op">,</span></span>
-<span id="cb31-96"><a href="#cb31-96" aria-hidden="true" tabindex="-1"></a>        output<span class="op">:</span> <span class="op">&amp;</span><span class="kw">mut</span> <span class="kw">dyn</span> WritableVector<span class="op">,</span></span>
-<span id="cb31-97"><a href="#cb31-97" aria-hidden="true" tabindex="-1"></a>    ) <span class="op">-&gt;</span> <span class="dt">Result</span><span class="op">&lt;</span>()<span class="op">,</span> <span class="dt">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="bu">Error</span><span class="op">&gt;&gt;</span> <span class="op">{</span></span>
-<span id="cb31-98"><a href="#cb31-98" aria-hidden="true" tabindex="-1"></a>        <span class="kw">let</span> len <span class="op">=</span> input<span class="op">.</span>len()<span class="op">;</span></span>
-<span id="cb31-99"><a href="#cb31-99" aria-hidden="true" tabindex="-1"></a>        <span class="kw">let</span> <span class="kw">mut</span> out <span class="op">=</span> output<span class="op">.</span>flat_vector()<span class="op">;</span></span>
-<span id="cb31-100"><a href="#cb31-100" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> i <span class="kw">in</span> <span class="dv">0</span><span class="op">..</span>len <span class="op">{</span></span>
-<span id="cb31-101"><a href="#cb31-101" aria-hidden="true" tabindex="-1"></a>            <span class="kw">let</span> settle_str <span class="op">=</span> <span class="kw">unsafe</span> <span class="op">{</span> read_varchar(input<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> i) <span class="op">};</span></span>
-<span id="cb31-102"><a href="#cb31-102" aria-hidden="true" tabindex="-1"></a>            <span class="kw">let</span> mat_str    <span class="op">=</span> <span class="kw">unsafe</span> <span class="op">{</span> read_varchar(input<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> i) <span class="op">};</span></span>
-<span id="cb31-103"><a href="#cb31-103" aria-hidden="true" tabindex="-1"></a>            <span class="kw">let</span> coupon     <span class="op">=</span> input<span class="op">.</span>flat_vector(<span class="dv">2</span>)<span class="op">.</span><span class="pp">as_slice::</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span>()[i]<span class="op">;</span></span>
-<span id="cb31-104"><a href="#cb31-104" aria-hidden="true" tabindex="-1"></a>            <span class="kw">let</span> yld        <span class="op">=</span> input<span class="op">.</span>flat_vector(<span class="dv">3</span>)<span class="op">.</span><span class="pp">as_slice::</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span>()[i]<span class="op">;</span></span>
-<span id="cb31-105"><a href="#cb31-105" aria-hidden="true" tabindex="-1"></a>            <span class="kw">let</span> freq       <span class="op">=</span> input<span class="op">.</span>flat_vector(<span class="dv">4</span>)<span class="op">.</span><span class="pp">as_slice::</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span>()[i] <span class="kw">as</span> <span class="dt">i32</span><span class="op">;</span></span>
-<span id="cb31-106"><a href="#cb31-106" aria-hidden="true" tabindex="-1"></a>            <span class="kw">let</span> _basis     <span class="op">=</span> input<span class="op">.</span>flat_vector(<span class="dv">5</span>)<span class="op">.</span><span class="pp">as_slice::</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span>()[i]<span class="op">;</span> <span class="co">// reserved</span></span>
-<span id="cb31-107"><a href="#cb31-107" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-108"><a href="#cb31-108" aria-hidden="true" tabindex="-1"></a>            <span class="cf">match</span> (parse_date(<span class="op">&amp;</span>settle_str)<span class="op">,</span> parse_date(<span class="op">&amp;</span>mat_str)<span class="op">,</span> freq_per_year(freq)) <span class="op">{</span></span>
-<span id="cb31-109"><a href="#cb31-109" aria-hidden="true" tabindex="-1"></a>                (<span class="cn">Some</span>(settle)<span class="op">,</span> <span class="cn">Some</span>(maturity)<span class="op">,</span> <span class="cn">Ok</span>(f)) <span class="cf">if</span> settle <span class="op">&lt;</span> maturity <span class="op">=&gt;</span> <span class="op">{</span></span>
-<span id="cb31-110"><a href="#cb31-110" aria-hidden="true" tabindex="-1"></a>                    write_f64(<span class="op">&amp;</span><span class="kw">mut</span> out<span class="op">,</span> i<span class="op">,</span> calc_convexity(settle<span class="op">,</span> maturity<span class="op">,</span> coupon<span class="op">,</span> yld<span class="op">,</span> f))<span class="op">;</span></span>
-<span id="cb31-111"><a href="#cb31-111" aria-hidden="true" tabindex="-1"></a>                <span class="op">}</span></span>
-<span id="cb31-112"><a href="#cb31-112" aria-hidden="true" tabindex="-1"></a>                _ <span class="op">=&gt;</span> out<span class="op">.</span>set_null(i)<span class="op">,</span></span>
-<span id="cb31-113"><a href="#cb31-113" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
-<span id="cb31-114"><a href="#cb31-114" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
-<span id="cb31-115"><a href="#cb31-115" aria-hidden="true" tabindex="-1"></a>        <span class="cn">Ok</span>(())</span>
-<span id="cb31-116"><a href="#cb31-116" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb31-117"><a href="#cb31-117" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="co">// ── Add to src/bonds.rs ───────────────────────────────────────────────────────</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a><span class="co">//</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a><span class="co">// CONVEXITY — measures the curvature of the price/yield relationship.</span></span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Duration alone is a linear (first-order) approximation of how price moves</span></span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a><span class="co">// with yield. Convexity is the second-order correction: it captures the fact</span></span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a><span class="co">// that bond prices fall less than duration predicts when yields rise, and</span></span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a><span class="co">// rise more than duration predicts when yields fall.</span></span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a><span class="co">//</span></span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Formula (annual coupon, periodic compounding):</span></span>
+<span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a><span class="co">//   Convexity = (1 / (P * (1+y/k)^2)) * sum_{t=1}^{n} [ CF_t * t * (t+1) / (1+y/k)^t ] / k^2</span></span>
+<span id="cb33-11"><a href="#cb33-11" aria-hidden="true" tabindex="-1"></a><span class="co">//</span></span>
+<span id="cb33-12"><a href="#cb33-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Where:</span></span>
+<span id="cb33-13"><a href="#cb33-13" aria-hidden="true" tabindex="-1"></a><span class="co">//   P = bond price (dirty, full price)</span></span>
+<span id="cb33-14"><a href="#cb33-14" aria-hidden="true" tabindex="-1"></a><span class="co">//   y = yield</span></span>
+<span id="cb33-15"><a href="#cb33-15" aria-hidden="true" tabindex="-1"></a><span class="co">//   k = compounding frequency</span></span>
+<span id="cb33-16"><a href="#cb33-16" aria-hidden="true" tabindex="-1"></a><span class="co">//   CF_t = cash flow at period t (coupon, or coupon+redemption at maturity)</span></span>
+<span id="cb33-17"><a href="#cb33-17" aria-hidden="true" tabindex="-1"></a><span class="co">//   n = number of remaining coupon periods</span></span>
+<span id="cb33-18"><a href="#cb33-18" aria-hidden="true" tabindex="-1"></a><span class="co">//</span></span>
+<span id="cb33-19"><a href="#cb33-19" aria-hidden="true" tabindex="-1"></a><span class="co">// This mirrors the same VScalar pattern as duration() and mduration() in</span></span>
+<span id="cb33-20"><a href="#cb33-20" aria-hidden="true" tabindex="-1"></a><span class="co">// this file — reuses the existing coupon schedule builder.</span></span>
+<span id="cb33-21"><a href="#cb33-21" aria-hidden="true" tabindex="-1"></a><span class="co">// ─────────────────────────────────────────────────────────────────────────────</span></span>
+<span id="cb33-22"><a href="#cb33-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-23"><a href="#cb33-23" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">duckdb::core::</span><span class="op">{</span>DataChunkHandle<span class="op">,</span> LogicalTypeHandle<span class="op">,</span> LogicalTypeId<span class="op">};</span></span>
+<span id="cb33-24"><a href="#cb33-24" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">duckdb::vscalar::</span><span class="op">{</span>ScalarFunctionSignature<span class="op">,</span> VScalar<span class="op">};</span></span>
+<span id="cb33-25"><a href="#cb33-25" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">duckdb::vtab::arrow::</span>WritableVector<span class="op">;</span></span>
+<span id="cb33-26"><a href="#cb33-26" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">std::error::</span><span class="bu">Error</span><span class="op">;</span></span>
+<span id="cb33-27"><a href="#cb33-27" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">chrono::</span>NaiveDate<span class="op">;</span></span>
+<span id="cb33-28"><a href="#cb33-28" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="kw">crate</span><span class="pp">::helpers::</span><span class="op">{</span>read_varchar<span class="op">,</span> parse_date<span class="op">,</span> write_f64<span class="op">,</span> year_frac<span class="op">,</span> freq_per_year<span class="op">};</span></span>
+<span id="cb33-29"><a href="#cb33-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-30"><a href="#cb33-30" aria-hidden="true" tabindex="-1"></a><span class="kw">fn</span> dbl() <span class="op">-&gt;</span> LogicalTypeHandle <span class="op">{</span> <span class="pp">LogicalTypeHandle::</span>from(<span class="pp">LogicalTypeId::</span>Double) <span class="op">}</span></span>
+<span id="cb33-31"><a href="#cb33-31" aria-hidden="true" tabindex="-1"></a><span class="kw">fn</span> varchar() <span class="op">-&gt;</span> LogicalTypeHandle <span class="op">{</span> <span class="pp">LogicalTypeHandle::</span>from(<span class="pp">LogicalTypeId::</span>Varchar) <span class="op">}</span></span>
+<span id="cb33-32"><a href="#cb33-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-33"><a href="#cb33-33" aria-hidden="true" tabindex="-1"></a><span class="co">/// Build the remaining coupon period schedule (year fractions from settlement)</span></span>
+<span id="cb33-34"><a href="#cb33-34" aria-hidden="true" tabindex="-1"></a><span class="co">/// for a standard periodic-coupon bond. Reuses the same logic pattern as</span></span>
+<span id="cb33-35"><a href="#cb33-35" aria-hidden="true" tabindex="-1"></a><span class="co">/// duration()/mduration() — walks backward from maturity in frequency steps.</span></span>
+<span id="cb33-36"><a href="#cb33-36" aria-hidden="true" tabindex="-1"></a><span class="kw">fn</span> coupon_schedule(settle<span class="op">:</span> NaiveDate<span class="op">,</span> maturity<span class="op">:</span> NaiveDate<span class="op">,</span> freq<span class="op">:</span> <span class="dt">i32</span>) <span class="op">-&gt;</span> <span class="dt">Vec</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb33-37"><a href="#cb33-37" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> step_months <span class="op">=</span> <span class="dv">12</span> <span class="op">/</span> freq<span class="op">;</span></span>
+<span id="cb33-38"><a href="#cb33-38" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> <span class="kw">mut</span> dates<span class="op">:</span> <span class="dt">Vec</span><span class="op">&lt;</span>NaiveDate<span class="op">&gt;</span> <span class="op">=</span> <span class="dt">Vec</span><span class="pp">::</span>new()<span class="op">;</span></span>
+<span id="cb33-39"><a href="#cb33-39" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> <span class="kw">mut</span> d <span class="op">=</span> maturity<span class="op">;</span></span>
+<span id="cb33-40"><a href="#cb33-40" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> d <span class="op">&gt;</span> settle <span class="op">{</span></span>
+<span id="cb33-41"><a href="#cb33-41" aria-hidden="true" tabindex="-1"></a>        dates<span class="op">.</span>push(d)<span class="op">;</span></span>
+<span id="cb33-42"><a href="#cb33-42" aria-hidden="true" tabindex="-1"></a>        d <span class="op">=</span> <span class="kw">crate</span><span class="pp">::helpers::</span>add_months(d<span class="op">,</span> <span class="op">-</span>step_months)<span class="op">;</span></span>
+<span id="cb33-43"><a href="#cb33-43" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb33-44"><a href="#cb33-44" aria-hidden="true" tabindex="-1"></a>    dates<span class="op">.</span>reverse()<span class="op">;</span></span>
+<span id="cb33-45"><a href="#cb33-45" aria-hidden="true" tabindex="-1"></a>    dates<span class="op">.</span>iter()</span>
+<span id="cb33-46"><a href="#cb33-46" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span>map(<span class="op">|&amp;</span>cd<span class="op">|</span> year_frac(settle<span class="op">,</span> cd<span class="op">,</span> <span class="dv">1</span>)) <span class="co">// actual/actual for the curvature calc</span></span>
+<span id="cb33-47"><a href="#cb33-47" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span>collect()</span>
+<span id="cb33-48"><a href="#cb33-48" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb33-49"><a href="#cb33-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-50"><a href="#cb33-50" aria-hidden="true" tabindex="-1"></a><span class="co">/// Pure-Rust convexity calculation, reusable from both the VScalar wrapper</span></span>
+<span id="cb33-51"><a href="#cb33-51" aria-hidden="true" tabindex="-1"></a><span class="co">/// and any future LIST/batch variant.</span></span>
+<span id="cb33-52"><a href="#cb33-52" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">fn</span> calc_convexity(</span>
+<span id="cb33-53"><a href="#cb33-53" aria-hidden="true" tabindex="-1"></a>    settle<span class="op">:</span> NaiveDate<span class="op">,</span></span>
+<span id="cb33-54"><a href="#cb33-54" aria-hidden="true" tabindex="-1"></a>    maturity<span class="op">:</span> NaiveDate<span class="op">,</span></span>
+<span id="cb33-55"><a href="#cb33-55" aria-hidden="true" tabindex="-1"></a>    coupon<span class="op">:</span> <span class="dt">f64</span><span class="op">,</span></span>
+<span id="cb33-56"><a href="#cb33-56" aria-hidden="true" tabindex="-1"></a>    yld<span class="op">:</span> <span class="dt">f64</span><span class="op">,</span></span>
+<span id="cb33-57"><a href="#cb33-57" aria-hidden="true" tabindex="-1"></a>    freq<span class="op">:</span> <span class="dt">i32</span><span class="op">,</span></span>
+<span id="cb33-58"><a href="#cb33-58" aria-hidden="true" tabindex="-1"></a>) <span class="op">-&gt;</span> <span class="dt">f64</span> <span class="op">{</span></span>
+<span id="cb33-59"><a href="#cb33-59" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> times <span class="op">=</span> coupon_schedule(settle<span class="op">,</span> maturity<span class="op">,</span> freq)<span class="op">;</span></span>
+<span id="cb33-60"><a href="#cb33-60" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> times<span class="op">.</span>is_empty() <span class="op">{</span> <span class="cf">return</span> <span class="dt">f64</span><span class="pp">::</span><span class="cn">NAN</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb33-61"><a href="#cb33-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-62"><a href="#cb33-62" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> k <span class="op">=</span> freq <span class="kw">as</span> <span class="dt">f64</span><span class="op">;</span></span>
+<span id="cb33-63"><a href="#cb33-63" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> coupon_pmt <span class="op">=</span> <span class="dv">100.0</span> <span class="op">*</span> coupon <span class="op">/</span> k<span class="op">;</span></span>
+<span id="cb33-64"><a href="#cb33-64" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> n <span class="op">=</span> times<span class="op">.</span>len()<span class="op">;</span></span>
+<span id="cb33-65"><a href="#cb33-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-66"><a href="#cb33-66" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> <span class="kw">mut</span> price <span class="op">=</span> <span class="dv">0.0f64</span><span class="op">;</span></span>
+<span id="cb33-67"><a href="#cb33-67" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> <span class="kw">mut</span> convex_sum <span class="op">=</span> <span class="dv">0.0f64</span><span class="op">;</span></span>
+<span id="cb33-68"><a href="#cb33-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-69"><a href="#cb33-69" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (idx<span class="op">,</span> <span class="op">&amp;</span>t) <span class="kw">in</span> times<span class="op">.</span>iter()<span class="op">.</span>enumerate() <span class="op">{</span></span>
+<span id="cb33-70"><a href="#cb33-70" aria-hidden="true" tabindex="-1"></a>        <span class="kw">let</span> period <span class="op">=</span> t <span class="op">*</span> k<span class="op">;</span> <span class="co">// period number (may be fractional for first period)</span></span>
+<span id="cb33-71"><a href="#cb33-71" aria-hidden="true" tabindex="-1"></a>        <span class="kw">let</span> cf <span class="op">=</span> <span class="cf">if</span> idx <span class="op">==</span> n <span class="op">-</span> <span class="dv">1</span> <span class="op">{</span> coupon_pmt <span class="op">+</span> <span class="dv">100.0</span> <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span> coupon_pmt <span class="op">};</span></span>
+<span id="cb33-72"><a href="#cb33-72" aria-hidden="true" tabindex="-1"></a>        <span class="kw">let</span> disc <span class="op">=</span> (<span class="dv">1.0</span> <span class="op">+</span> yld <span class="op">/</span> k)<span class="op">.</span>powf(period)<span class="op">;</span></span>
+<span id="cb33-73"><a href="#cb33-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-74"><a href="#cb33-74" aria-hidden="true" tabindex="-1"></a>        price <span class="op">+=</span> cf <span class="op">/</span> disc<span class="op">;</span></span>
+<span id="cb33-75"><a href="#cb33-75" aria-hidden="true" tabindex="-1"></a>        convex_sum <span class="op">+=</span> cf <span class="op">*</span> period <span class="op">*</span> (period <span class="op">+</span> <span class="dv">1.0</span>) <span class="op">/</span> disc<span class="op">;</span></span>
+<span id="cb33-76"><a href="#cb33-76" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb33-77"><a href="#cb33-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-78"><a href="#cb33-78" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> price<span class="op">.</span>abs() <span class="op">&lt;</span> <span class="dv">1e-12</span> <span class="op">{</span> <span class="cf">return</span> <span class="dt">f64</span><span class="pp">::</span><span class="cn">NAN</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb33-79"><a href="#cb33-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-80"><a href="#cb33-80" aria-hidden="true" tabindex="-1"></a>    convex_sum <span class="op">/</span> (price <span class="op">*</span> (<span class="dv">1.0</span> <span class="op">+</span> yld <span class="op">/</span> k)<span class="op">.</span>powi(<span class="dv">2</span>) <span class="op">*</span> k <span class="op">*</span> k)</span>
+<span id="cb33-81"><a href="#cb33-81" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb33-82"><a href="#cb33-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-83"><a href="#cb33-83" aria-hidden="true" tabindex="-1"></a><span class="co">// ── CONVEXITY ────────────────────────────────────────────────────────────────</span></span>
+<span id="cb33-84"><a href="#cb33-84" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">struct</span> ConvexityFunction<span class="op">;</span></span>
+<span id="cb33-85"><a href="#cb33-85" aria-hidden="true" tabindex="-1"></a><span class="kw">impl</span> VScalar <span class="cf">for</span> ConvexityFunction <span class="op">{</span></span>
+<span id="cb33-86"><a href="#cb33-86" aria-hidden="true" tabindex="-1"></a>    <span class="kw">type</span> State <span class="op">=</span> ()<span class="op">;</span></span>
+<span id="cb33-87"><a href="#cb33-87" aria-hidden="true" tabindex="-1"></a>    <span class="kw">fn</span> signatures() <span class="op">-&gt;</span> <span class="dt">Vec</span><span class="op">&lt;</span>ScalarFunctionSignature<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb33-88"><a href="#cb33-88" aria-hidden="true" tabindex="-1"></a>        <span class="pp">vec!</span>[<span class="pp">ScalarFunctionSignature::</span>exact(</span>
+<span id="cb33-89"><a href="#cb33-89" aria-hidden="true" tabindex="-1"></a>            <span class="pp">vec!</span>[varchar()<span class="op">,</span> varchar()<span class="op">,</span> dbl()<span class="op">,</span> dbl()<span class="op">,</span> dbl()<span class="op">,</span> dbl()]<span class="op">,</span></span>
+<span id="cb33-90"><a href="#cb33-90" aria-hidden="true" tabindex="-1"></a>            dbl()<span class="op">,</span></span>
+<span id="cb33-91"><a href="#cb33-91" aria-hidden="true" tabindex="-1"></a>        )]</span>
+<span id="cb33-92"><a href="#cb33-92" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb33-93"><a href="#cb33-93" aria-hidden="true" tabindex="-1"></a>    <span class="kw">unsafe</span> <span class="kw">fn</span> invoke(</span>
+<span id="cb33-94"><a href="#cb33-94" aria-hidden="true" tabindex="-1"></a>        _<span class="op">:</span> <span class="op">&amp;</span>()<span class="op">,</span></span>
+<span id="cb33-95"><a href="#cb33-95" aria-hidden="true" tabindex="-1"></a>        input<span class="op">:</span>  <span class="op">&amp;</span><span class="kw">mut</span> DataChunkHandle<span class="op">,</span></span>
+<span id="cb33-96"><a href="#cb33-96" aria-hidden="true" tabindex="-1"></a>        output<span class="op">:</span> <span class="op">&amp;</span><span class="kw">mut</span> <span class="kw">dyn</span> WritableVector<span class="op">,</span></span>
+<span id="cb33-97"><a href="#cb33-97" aria-hidden="true" tabindex="-1"></a>    ) <span class="op">-&gt;</span> <span class="dt">Result</span><span class="op">&lt;</span>()<span class="op">,</span> <span class="dt">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="bu">Error</span><span class="op">&gt;&gt;</span> <span class="op">{</span></span>
+<span id="cb33-98"><a href="#cb33-98" aria-hidden="true" tabindex="-1"></a>        <span class="kw">let</span> len <span class="op">=</span> input<span class="op">.</span>len()<span class="op">;</span></span>
+<span id="cb33-99"><a href="#cb33-99" aria-hidden="true" tabindex="-1"></a>        <span class="kw">let</span> <span class="kw">mut</span> out <span class="op">=</span> output<span class="op">.</span>flat_vector()<span class="op">;</span></span>
+<span id="cb33-100"><a href="#cb33-100" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> i <span class="kw">in</span> <span class="dv">0</span><span class="op">..</span>len <span class="op">{</span></span>
+<span id="cb33-101"><a href="#cb33-101" aria-hidden="true" tabindex="-1"></a>            <span class="kw">let</span> settle_str <span class="op">=</span> <span class="kw">unsafe</span> <span class="op">{</span> read_varchar(input<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> i) <span class="op">};</span></span>
+<span id="cb33-102"><a href="#cb33-102" aria-hidden="true" tabindex="-1"></a>            <span class="kw">let</span> mat_str    <span class="op">=</span> <span class="kw">unsafe</span> <span class="op">{</span> read_varchar(input<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> i) <span class="op">};</span></span>
+<span id="cb33-103"><a href="#cb33-103" aria-hidden="true" tabindex="-1"></a>            <span class="kw">let</span> coupon     <span class="op">=</span> input<span class="op">.</span>flat_vector(<span class="dv">2</span>)<span class="op">.</span><span class="pp">as_slice::</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span>()[i]<span class="op">;</span></span>
+<span id="cb33-104"><a href="#cb33-104" aria-hidden="true" tabindex="-1"></a>            <span class="kw">let</span> yld        <span class="op">=</span> input<span class="op">.</span>flat_vector(<span class="dv">3</span>)<span class="op">.</span><span class="pp">as_slice::</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span>()[i]<span class="op">;</span></span>
+<span id="cb33-105"><a href="#cb33-105" aria-hidden="true" tabindex="-1"></a>            <span class="kw">let</span> freq       <span class="op">=</span> input<span class="op">.</span>flat_vector(<span class="dv">4</span>)<span class="op">.</span><span class="pp">as_slice::</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span>()[i] <span class="kw">as</span> <span class="dt">i32</span><span class="op">;</span></span>
+<span id="cb33-106"><a href="#cb33-106" aria-hidden="true" tabindex="-1"></a>            <span class="kw">let</span> _basis     <span class="op">=</span> input<span class="op">.</span>flat_vector(<span class="dv">5</span>)<span class="op">.</span><span class="pp">as_slice::</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span>()[i]<span class="op">;</span> <span class="co">// reserved</span></span>
+<span id="cb33-107"><a href="#cb33-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-108"><a href="#cb33-108" aria-hidden="true" tabindex="-1"></a>            <span class="cf">match</span> (parse_date(<span class="op">&amp;</span>settle_str)<span class="op">,</span> parse_date(<span class="op">&amp;</span>mat_str)<span class="op">,</span> freq_per_year(freq)) <span class="op">{</span></span>
+<span id="cb33-109"><a href="#cb33-109" aria-hidden="true" tabindex="-1"></a>                (<span class="cn">Some</span>(settle)<span class="op">,</span> <span class="cn">Some</span>(maturity)<span class="op">,</span> <span class="cn">Ok</span>(f)) <span class="cf">if</span> settle <span class="op">&lt;</span> maturity <span class="op">=&gt;</span> <span class="op">{</span></span>
+<span id="cb33-110"><a href="#cb33-110" aria-hidden="true" tabindex="-1"></a>                    write_f64(<span class="op">&amp;</span><span class="kw">mut</span> out<span class="op">,</span> i<span class="op">,</span> calc_convexity(settle<span class="op">,</span> maturity<span class="op">,</span> coupon<span class="op">,</span> yld<span class="op">,</span> f))<span class="op">;</span></span>
+<span id="cb33-111"><a href="#cb33-111" aria-hidden="true" tabindex="-1"></a>                <span class="op">}</span></span>
+<span id="cb33-112"><a href="#cb33-112" aria-hidden="true" tabindex="-1"></a>                _ <span class="op">=&gt;</span> out<span class="op">.</span>set_null(i)<span class="op">,</span></span>
+<span id="cb33-113"><a href="#cb33-113" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb33-114"><a href="#cb33-114" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb33-115"><a href="#cb33-115" aria-hidden="true" tabindex="-1"></a>        <span class="cn">Ok</span>(())</span>
+<span id="cb33-116"><a href="#cb33-116" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb33-117"><a href="#cb33-117" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="registration" class="level3">
 <h3 class="anchored" data-anchor-id="registration">Registration</h3>
 <p>Add one line to the extension entry point in <code>src/lib.rs</code>, alongside the other bond functions:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb32"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>ConvexityFunction<span class="op">&gt;</span>(<span class="st">&quot;convexity&quot;</span>)<span class="op">?;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb34"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>con<span class="op">.</span><span class="pp">register_scalar_function::</span><span class="op">&lt;</span>ConvexityFunction<span class="op">&gt;</span>(<span class="st">&quot;convexity&quot;</span>)<span class="op">?;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="verification-against-a-known-reference" class="level3">
 <h3 class="anchored" data-anchor-id="verification-against-a-known-reference">Verification Against a Known Reference</h3>
 <p>Convexity has no single universally-quoted Excel function to check against, but the relationship below must hold for any correctly implemented convexity: a small yield shock estimated via duration alone should always be <em>less accurate</em> than the same shock estimated via duration plus convexity, when compared to the bond’s actual repriced value. Part 1, Step 4 of this tutorial demonstrates exactly that check.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Sanity check: convexity should always be positive for a standard</span></span>
-<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- option-free bond (this is a defining property of vanilla bonds)</span></span>
-<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> convexity(<span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2036-06-30&#39;</span>, <span class="fl">0.04375</span>, <span class="fl">0.0437</span>, <span class="dv">2</span>, <span class="dv">1</span>) <span class="op">&gt;</span> <span class="dv">0</span></span>
-<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>       <span class="kw">AS</span> convexity_is_positive;</span>
-<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Expected: true</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb35"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Sanity check: convexity should always be positive for a standard</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- option-free bond (this is a defining property of vanilla bonds)</span></span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> convexity(<span class="st">&#39;2026-06-30&#39;</span>, <span class="st">&#39;2036-06-30&#39;</span>, <span class="fl">0.04375</span>, <span class="fl">0.0437</span>, <span class="dv">2</span>, <span class="dv">1</span>) <span class="op">&gt;</span> <span class="dv">0</span></span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a>       <span class="kw">AS</span> convexity_is_positive;</span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Expected: true</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
 </section>
