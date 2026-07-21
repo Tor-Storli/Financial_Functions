@@ -28,6 +28,12 @@ execute:
 
 [View Bond Tutorial Documentation](https://tor-storli.github.io/Financial_Functions/bond_investing_tutorial.html)
 
+[View Bond Primer Documentation](https://tor-storli.github.io/Financial_Functions/bond_primer.html)
+
+[View Bond Amortization Documentation](https://tor-storli.github.io/Financial_Functions/bond_amortization_tutorial.html)
+
+[View Bond Duration-Convexity Documentation](https://tor-storli.github.io/Financial_Functions/duration_convexity_tutorial.html)
+
 # Overview
 
 This tutorial walks through building a **DuckDB community extension in Rust** that exposes 56 Excel-compatible financial functions directly inside DuckDB SQL queries. By the end you will understand:
