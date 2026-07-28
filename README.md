@@ -34,6 +34,9 @@ execute:
 
 [View Bond Duration-Convexity Documentation](https://tor-storli.github.io/Financial_Functions/duration_convexity_tutorial.html)
 
+[View Other Misc. Bond Functions Documentation](https://tor-storli.github.io/Financial_Functions/Misc_Other_Bond_Functions.html)
+
+
 # Overview
 
 This tutorial walks through building a **DuckDB community extension in Rust** that exposes 56 Excel-compatible financial functions directly inside DuckDB SQL queries. By the end you will understand:
