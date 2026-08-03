@@ -22,6 +22,8 @@ execute:
 
 ## Documentation
 
+[Excel Financial Functions Reference](https://support.microsoft.com/en-us/excel/financial-functions-reference)
+
 [View Creating Extension Documentation](https://tor-storli.github.io/Financial_Functions/duckdb_financial_extension.html)
 
 [View Publish Extension Documentation](https://tor-storli.github.io/Financial_Functions/publishing_duckdb_extension.html)
@@ -35,7 +37,6 @@ execute:
 [View Bond Duration-Convexity Documentation](https://tor-storli.github.io/Financial_Functions/duration_convexity_tutorial.html)
 
 [View Other Misc. Bond Functions Documentation](https://tor-storli.github.io/Financial_Functions/Misc_Other_Bond_Functions.html)
-
 
 # Overview
 
@@ -62,16 +63,6 @@ The 56 functions are organised into six groups:
 | **Miscellaneous** | `effect`, `nominal`, `dollarde`, `dollarfr`, `fvschedule`, `rri`, `pduration`, `tbillprice`, `tbillyield`, `tbilleq`, `oddfprice`, `oddfyield`, `oddlprice`, `oddlyield` |
 
 ---
-
-### Excel Financial Functions
-
-::: {.callout-note}
-
-### Excel Financial Functions - Note
-
-You can find the Excel Financial Functions and examples here:<br>
-[Excel Financial Functions Reference](https://support.microsoft.com/en-us/office/financial-functions-reference-5658d81e-6035-4f24-89c1-fbf124c2b1d8){target="\_blank"}
-:::
 
 # Project Setup
 

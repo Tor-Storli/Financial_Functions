@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Tor Storli and   Claude Sonnet 4.6 (Anthropic’s AI assistant)">
-<meta name="dcterms.date" content="2026-07-28">
+<meta name="dcterms.date" content="2026-08-01">
 
 <title>Bond Functions — Beyond the Standard Coupon Bond</title>
 <style>
@@ -2264,7 +2264,7 @@ vertical-align: -.125em;
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">July 28, 2026</p>
+      <p class="date">August 1, 2026</p>
     </div>
   </div>
   
@@ -2369,42 +2369,128 @@ vertical-align: -.125em;
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Note</span>Discount Rate vs Yield
+<span class="screen-reader-only">Note</span>Discount Rate vs Yield — Three Different Numbers for the Same Investment
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>A discount rate is calculated on the <strong>face value</strong> using a 360-day year. A yield is calculated on the <strong>price paid</strong> using a 365-day year. They are different numbers for the same security. Always specify which one you are working with. <code>pricedisc</code> takes a discount rate as input.</p>
+<p>This is one of the most common sources of confusion in fixed-income markets. One investment produces three different-looking numbers depending on how you express the return. Here is a concrete walkthrough.</p>
+<p><strong><em><span style="color: blue;">In the examples below, note that 2028 is a Leap Year where February has 29 days, and therefore we use 182 days</span></em></strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">select</span> date_diff(<span class="st">&#39;day&#39;</span>, <span class="dt">DATE</span> <span class="st">&#39;2028-01-01&#39;</span>, <span class="dt">DATE</span> <span class="st">&#39;2028-07-01&#39;</span>);)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result 182 </span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>The investment:</strong> You buy a 6-month corporate note on January 1, 2028. You pay <strong>$97.2194</strong> today and receive <strong>$100.00</strong> on July 1, 2028 (182 actual days). Your profit is <strong>$2.7806</strong>.</p>
+<p><strong>Number 1 — The Discount Rate (5.50%)</strong></p>
+<p>Discount rate = (Face − Price) / <span style="color: blue;"><strong>Face</strong></span> × (360 / Days)<br>
+= (100 − 97.2194) / 100 × (360 / 182)<br>
+= 5.50%</p>
+<p>Divides by <strong>face value</strong> and uses a <strong>360-day year</strong>. This is the convention dealers use when quoting discount securities. <strong><em>When you see a T-bill or commercial paper quoted on Bloomberg, this is the number shown.</em></strong></p>
+<p><strong>Number 2 — The Investment Yield (5.66%)</strong></p>
+<p>Investment yield = (Face − Price) / <span style="color: red;"><strong>Price</strong></span> × (360 / Days)<br>
+= (100 − 97.2194) / 97.2194 × (360 / 182)<br>
+= 5.66%</p>
+<p>Divides by <strong>price paid</strong> (what you actually invested) and still uses a <strong>360-day year</strong>. <strong><em>Always higher than the discount rate because the denominator is smaller.</em></strong></p>
+<p><strong>Number 3 — The Bond-Equivalent Yield (5.73%)</strong></p>
+<p>Bond-equivalent yield = (Face − Price) / <span style="color: red;"><strong>Price</strong></span> × (<span style="color: blue;"><strong>365</strong></span> / Days)<br>
+= (100 − 97.2194) / 97.2194 × (365 / 182)<br>
+= 5.73%</p>
+<p>Divides by <strong>price paid</strong> and uses a <strong>365-day year</strong> — the same convention as coupon Treasury notes. This is what <code>yielddisc()</code> returns and what you need to compare fairly against a coupon bond yield.</p>
+<p><strong>All three in SQL:</strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(disc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">97.2194</span>,<span class="dv">100</span>,<span class="dv">2</span>), <span class="dv">6</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> discount_rate,         <span class="co">-- 0.055000 — face value, Actual/360</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>((<span class="dv">100</span> <span class="op">-</span> <span class="fl">97.2194</span>) <span class="op">/</span> <span class="fl">97.2194</span> <span class="op">*</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>          (<span class="fl">360.0</span> <span class="op">/</span> date_diff(<span class="st">&#39;day&#39;</span>, <span class="dt">DATE</span> <span class="st">&#39;2028-01-01&#39;</span>, <span class="dt">DATE</span> <span class="st">&#39;2028-07-01&#39;</span>)), <span class="dv">6</span>)</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> investment_yield,      <span class="co">-- 0.056574 — price paid, Actual/360</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(yielddisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">97.2194</span>,<span class="dv">100</span>,<span class="dv">3</span>), <span class="dv">6</span>)</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> bond_equivalent_yield; <span class="co">-- 0.057360 — price paid, Actual/365 (basis 3)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>The practical rule:</strong></p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Situation</th>
+<th>What to use</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Dealer quotes you a price</td>
+<td>They give you the <strong>discount rate</strong></td>
+</tr>
+<tr class="even">
+<td>You want your actual return</td>
+<td>Convert to <strong>investment yield</strong></td>
+</tr>
+<tr class="odd">
+<td>Comparing to a Treasury note</td>
+<td>Convert to <strong>bond-equivalent yield</strong></td>
+</tr>
+<tr class="even">
+<td>Pricing from a quoted rate</td>
+<td>Use <code>pricedisc()</code> — takes a <strong>discount rate</strong></td>
+</tr>
+<tr class="odd">
+<td>Finding the rate from price</td>
+<td>Use <code>yielddisc()</code> with <strong>basis 3</strong> for <strong>bond-equivalent yield (Actual/365)</strong></td>
+</tr>
+</tbody>
+</table>
+<p><code>pricedisc</code> takes a <strong>discount rate</strong> as its input — not an investment yield and not a bond-equivalent yield.</p>
 </div>
 </div>
-<p><strong>Example:</strong> A corporate commercial paper note matures in 180 days (January 1, 2028 to July 1, 2028) with a 5.5% discount rate and $100 redemption value.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Price of a discount security</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    pricedisc(<span class="st">&#39;2028-01-01&#39;</span>, <span class="st">&#39;2028-07-01&#39;</span>, <span class="fl">0.055</span>, <span class="dv">100</span>, <span class="dv">2</span>),</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dv">4</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> price;</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Basis 2 = Actual/360 — standard for US commercial paper</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 97.2194</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- The investor pays $97.22 today and receives $100 in 182 days</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co">-- The $2.78 difference is the entire return</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Example:</strong> A corporate commercial paper note matures in 182 actual days (January 1, 2028 to July 1, 2028 — 2028 is a leap year) with a 5.5% discount rate and $100 redemption value.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Price of a discount security</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- Always verify actual day count first</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> date_diff(<span class="st">&#39;day&#39;</span>, <span class="dt">DATE</span> <span class="st">&#39;2028-01-01&#39;</span>, <span class="dt">DATE</span> <span class="st">&#39;2028-07-01&#39;</span>) <span class="kw">AS</span> actual_days;</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 182  (2028 is a leap year — not 180!)</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    pricedisc(<span class="st">&#39;2028-01-01&#39;</span>, <span class="st">&#39;2028-07-01&#39;</span>, <span class="fl">0.055</span>, <span class="dv">100</span>, <span class="dv">2</span>),</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="dv">4</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> price;</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="co">-- Basis 2 = Actual/360 — standard for US commercial paper</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 97.2194</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="co">-- The investor pays $97.22 today and receives $100 in 182 days</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="co">-- The $2.78 difference is the entire return</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><strong>Working out the arithmetic:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Show the discount calculation manually</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(pricedisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">0.055</span>,<span class="dv">100</span>,<span class="dv">2</span>), <span class="dv">4</span>) <span class="kw">AS</span> price,</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="dv">100</span> <span class="op">-</span> <span class="fu">ROUND</span>(pricedisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">0.055</span>,<span class="dv">100</span>,<span class="dv">2</span>), <span class="dv">4</span>)</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> dollar_discount,</span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Verify: discount = face × rate × (days/360)</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- 182 days × 5.5% / 360 = 2.7806</span></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(<span class="dv">100</span> <span class="op">*</span> <span class="fl">0.055</span> <span class="op">*</span> <span class="fl">182.0</span> <span class="op">/</span> <span class="dv">360</span>, <span class="dv">4</span>)                        <span class="kw">AS</span> manual_check;</span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- price:  97.2194 | dollar_discount: 2.7806  | manual_check: 2.7800 ✓</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Show the discount calculation manually</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(pricedisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">0.055</span>,<span class="dv">100</span>,<span class="dv">2</span>), <span class="dv">4</span>) <span class="kw">AS</span> price,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="dv">100</span> <span class="op">-</span> <span class="fu">ROUND</span>(pricedisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">0.055</span>,<span class="dv">100</span>,<span class="dv">2</span>), <span class="dv">4</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> dollar_discount,</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    date_diff(<span class="st">&#39;day&#39;</span>, <span class="dt">DATE</span> <span class="st">&#39;2028-01-01&#39;</span>, <span class="dt">DATE</span> <span class="st">&#39;2028-07-01&#39;</span>)</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> actual_days,</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Verify: Price = Face × (1 − rate × days/360)</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- 100 × (1 − 0.055 × 182/360) = 97.2194</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(<span class="dv">100</span> <span class="op">*</span> (<span class="dv">1</span> <span class="op">-</span> <span class="fl">0.055</span> <span class="op">*</span> date_diff(<span class="st">&#39;day&#39;</span>,</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>          <span class="dt">DATE</span> <span class="st">&#39;2028-01-01&#39;</span>, <span class="dt">DATE</span> <span class="st">&#39;2028-07-01&#39;</span>) <span class="op">/</span> <span class="fl">360.0</span>), <span class="dv">4</span>)  <span class="kw">AS</span> manual_check;</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="co">-- price: 97.2194 | dollar_discount: 2.7806 | actual_days: 182 | manual_check: 97.2194 ✓</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Always Verify the Day Count First
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Never assume the number of days from month names alone. January 1 to July 1 sounds like “6 months = 180 days” but 2028 is a leap year making it 182 days. Always run <code>date_diff()</code> before writing your comments or doing manual checks.</p>
+</div>
+</div>
 <p><strong>Scaling to a $1,000,000 commercial paper note:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="dv">1000000</span> <span class="op">*</span> <span class="fu">ROUND</span>(pricedisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">0.055</span>,<span class="dv">100</span>,<span class="dv">2</span>)<span class="op">/</span><span class="dv">100</span>, <span class="dv">6</span>)</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> purchase_price,</span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="dv">1000000</span> <span class="op">-</span> <span class="dv">1000000</span> <span class="op">*</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>        <span class="fu">ROUND</span>(pricedisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">0.055</span>,<span class="dv">100</span>,<span class="dv">2</span>)<span class="op">/</span><span class="dv">100</span>, <span class="dv">6</span>)</span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> total_discount;</span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- purchase_price: $ 972,194 | total_discount: $27,806</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="dv">1000000</span> <span class="op">*</span> <span class="fu">ROUND</span>(pricedisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">0.055</span>,<span class="dv">100</span>,<span class="dv">2</span>)<span class="op">/</span><span class="dv">100</span>, <span class="dv">6</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> purchase_price,</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="dv">1000000</span> <span class="op">-</span> <span class="dv">1000000</span> <span class="op">*</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>        <span class="fu">ROUND</span>(pricedisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">0.055</span>,<span class="dv">100</span>,<span class="dv">2</span>)<span class="op">/</span><span class="dv">100</span>, <span class="dv">6</span>)</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> total_discount;</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- purchase_price: $972,194 | total_discount: $27,806</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
 <section id="yielddisc-yield-of-a-discount-security" class="level3">
@@ -2413,21 +2499,21 @@ vertical-align: -.125em;
 <p><strong>Signature:</strong></p>
 <pre><code>yielddisc(settlement, maturity, price, redemption, basis)</code></pre>
 <p><strong>Example:</strong> You observe the same commercial paper trading at $97.10 in the market. What discount rate does that imply?</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    yielddisc(<span class="st">&#39;2028-01-01&#39;</span>, <span class="st">&#39;2028-07-01&#39;</span>, <span class="fl">97.10</span>, <span class="dv">100</span>, <span class="dv">2</span>),</span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">6</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> implied_discount_rate;</span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result:  0.059076 = 5.908%</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- The market is pricing this at a slightly higher discount rate</span></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- than our 5.5% example — meaning price has fallen since issuance</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    yielddisc(<span class="st">&#39;2028-01-01&#39;</span>, <span class="st">&#39;2028-07-01&#39;</span>, <span class="fl">97.10</span>, <span class="dv">100</span>, <span class="dv">2</span>),</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">6</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> implied_discount_rate;</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.059076 = 5.908%</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- The market is pricing this at a slightly higher discount rate</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- than our 5.5% example — meaning price has fallen since issuance</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><strong>Round-trip check — price → yield → price:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="fl">97.01</span>                                                        <span class="kw">AS</span> original_price,</span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(yielddisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">97.10</span>,<span class="dv">100</span>,<span class="dv">2</span>),<span class="dv">6</span>)   <span class="kw">AS</span> implied_yield,</span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(pricedisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,</span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>           yielddisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">97.10</span>,<span class="dv">100</span>,<span class="dv">2</span>),</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>           <span class="dv">100</span>, <span class="dv">2</span>), <span class="dv">4</span>)                                            <span class="kw">AS</span> back_to_price;</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- back_to_price should equal 97.01 ✓</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    <span class="fl">97.10</span>                                                         <span class="kw">AS</span> original_price,</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(yielddisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">97.10</span>,<span class="dv">100</span>,<span class="dv">2</span>),<span class="dv">6</span>)   <span class="kw">AS</span> implied_yield,</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(pricedisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>           yielddisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">97.10</span>,<span class="dv">100</span>,<span class="dv">2</span>),</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>           <span class="dv">100</span>, <span class="dv">2</span>), <span class="dv">4</span>)                                            <span class="kw">AS</span> back_to_price;</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- back_to_price should equal 97.10 ✓</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
 <section id="disc-discount-rate-of-a-security" class="level3">
@@ -2435,26 +2521,26 @@ vertical-align: -.125em;
 <p><strong>What it does:</strong> Calculates the discount rate of a security given its settlement price and redemption value. Similar to <code>yielddisc</code> but uses slightly different conventions in some cases.</p>
 <p><strong>Signature:</strong></p>
 <pre><code>disc(settlement, maturity, price, redemption, basis)</code></pre>
-<p><strong>Example:</strong> A Treasury bill bought at $98.50 matures at $100 in 91 days (April 1 to July 1, 2028).</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    disc(<span class="st">&#39;2028-04-01&#39;</span>, <span class="st">&#39;2028-07-01&#39;</span>, <span class="fl">98.50</span>, <span class="dv">100</span>, <span class="dv">2</span>),</span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">6</span></span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> discount_rate;</span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.059341 = 5.93%</span></span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Verify manually: discount = (100 - 98.50) / 100 × (360/91)</span></span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>((<span class="dv">100</span> <span class="op">-</span> <span class="fl">98.50</span>) <span class="op">/</span> <span class="dv">100</span> <span class="op">*</span> (<span class="fl">360.0</span> <span class="op">/</span> <span class="dv">91</span>), <span class="dv">6</span>) <span class="kw">AS</span> manual_check;</span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.060000 ✓</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Example:</strong> A Treasury bill bought at $98.50 matures at $100 in 90 days (April 1 to July 1, 2028).</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    disc(<span class="st">&#39;2028-04-01&#39;</span>, <span class="st">&#39;2028-07-01&#39;</span>, <span class="fl">98.50</span>, <span class="dv">100</span>, <span class="dv">2</span>),</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">6</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> discount_rate;</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 0.059341 = 5.93%</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Verify manually: discount = (100 - 98.50) / 100 × (360/91)</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>((<span class="dv">100</span> <span class="op">-</span> <span class="fl">98.50</span>) <span class="op">/</span> <span class="dv">100</span> <span class="op">*</span> (<span class="fl">360.0</span> <span class="op">/</span> <span class="dv">91</span>), <span class="dv">6</span>) <span class="kw">AS</span> manual_check;</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result:  0.059341 ✓</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><strong>Compare <code>disc</code> vs <code>yielddisc</code> for the same security:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- disc gives the discount rate (based on face value, 360-day year)</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- yielddisc gives the investment yield (based on price paid, 365-day year)</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(disc(<span class="st">&#39;2028-04-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">98.50</span>,<span class="dv">100</span>,<span class="dv">2</span>), <span class="dv">6</span>)     <span class="kw">AS</span> discount_rate,</span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(yielddisc(<span class="st">&#39;2028-04-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">98.50</span>,<span class="dv">100</span>,<span class="dv">2</span>), <span class="dv">6</span>) <span class="kw">AS</span> investment_yield;</span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- discount_rate:    0.059341 (5.93%)</span></span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- investment_yield: 0.060244 (6.02%)</span></span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- Investment yield is always slightly higher than the discount rate</span></span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- because the denominator is price (smaller) not face value (larger)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- disc gives the discount rate (based on face value, 360-day year)</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- yielddisc gives the investment yield (based on price paid, 365-day year)</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(disc(<span class="st">&#39;2028-04-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">98.50</span>,<span class="dv">100</span>,<span class="dv">2</span>), <span class="dv">6</span>)     <span class="kw">AS</span> discount_rate,</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(yielddisc(<span class="st">&#39;2028-04-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">98.50</span>,<span class="dv">100</span>,<span class="dv">2</span>), <span class="dv">6</span>) <span class="kw">AS</span> investment_yield;</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- discount_rate:     0.059341 (5.93%)</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- investment_yield:  0.060244 (6.02%)</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- Investment yield is always slightly higher than the discount rate</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- because the denominator is price (smaller) not face value (larger)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
 </section>
@@ -2501,27 +2587,27 @@ vertical-align: -.125em;
 </tbody>
 </table>
 <p><strong>Example:</strong> A 1-year corporate note issued January 1, 2028 pays all interest at maturity January 1, 2029. Coupon rate 5%, investor requires 6% yield.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Price of a maturity-interest note</span></span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    pricemat(<span class="st">&#39;2028-01-01&#39;</span>, <span class="st">&#39;2029-01-01&#39;</span>, <span class="st">&#39;2028-01-01&#39;</span>, <span class="fl">0.05</span>, <span class="fl">0.06</span>, <span class="dv">1</span>),</span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    <span class="dv">4</span></span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> price;</span>
-<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 99.0566</span></span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Bond prices below par because yield (6%) &gt; coupon (5%)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Price of a maturity-interest note</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>    pricemat(<span class="st">&#39;2028-01-01&#39;</span>, <span class="st">&#39;2029-01-01&#39;</span>, <span class="st">&#39;2028-01-01&#39;</span>, <span class="fl">0.05</span>, <span class="fl">0.06</span>, <span class="dv">1</span>),</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>    <span class="dv">4</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> price;</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 99.0566</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Bond prices below par because yield (6%) &gt; coupon (5%)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><strong>Show the full economics:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(pricemat(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,<span class="st">&#39;2028-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="fl">0.06</span>,<span class="dv">1</span>),<span class="dv">4</span>)</span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> price,</span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Amount received at maturity: face + one year of interest</span></span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- $100 × (1 + 5%) = $105</span></span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="fl">105.0</span>                                                              <span class="kw">AS</span> maturity_value,</span>
-<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(<span class="fl">105.0</span> <span class="op">-</span> pricemat(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,</span>
-<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>                           <span class="st">&#39;2028-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="fl">0.06</span>,<span class="dv">1</span>), <span class="dv">4</span>)               <span class="kw">AS</span> total_return,</span>
-<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Verify yield: (maturity_value / price) - 1 ≈ 6%</span></span>
-<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>((<span class="fl">105.0</span> <span class="op">/</span> pricemat(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,</span>
-<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&#39;2028-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="fl">0.06</span>,<span class="dv">1</span>)) <span class="op">-</span> <span class="dv">1</span>, <span class="dv">6</span>)         <span class="kw">AS</span> implied_yield;</span>
-<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a><span class="co">-- price: 99.0566 | maturity_value: 105 | total_return: 5.9434</span></span>
-<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a><span class="co">-- implied_yield: 0.060000 (6.00%) ✓</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(pricemat(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,<span class="st">&#39;2028-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="fl">0.06</span>,<span class="dv">1</span>),<span class="dv">4</span>)</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> price,</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Amount received at maturity: face + one year of interest</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- $100 × (1 + 5%) = $105</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    <span class="fl">105.0</span>                                                              <span class="kw">AS</span> maturity_value,</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(<span class="fl">105.0</span> <span class="op">-</span> pricemat(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>                           <span class="st">&#39;2028-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="fl">0.06</span>,<span class="dv">1</span>), <span class="dv">4</span>)               <span class="kw">AS</span> total_return,</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Verify yield: (maturity_value / price) - 1 ≈ 6%</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>((<span class="fl">105.0</span> <span class="op">/</span> pricemat(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&#39;2028-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="fl">0.06</span>,<span class="dv">1</span>)) <span class="op">-</span> <span class="dv">1</span>, <span class="dv">6</span>)         <span class="kw">AS</span> implied_yield;</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a><span class="co">-- price: 99.0566 | maturity_value: 105 | total_return: 5.9434</span></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a><span class="co">-- implied_yield: 0.060000 (6.00%) ✓</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
 <section id="yieldmat-yield-of-a-maturity-interest-security" class="level3">
@@ -2529,22 +2615,22 @@ vertical-align: -.125em;
 <p><strong>What it does:</strong> The inverse of <code>pricemat</code>. Given the market price, calculates the yield of a maturity-interest security.</p>
 <p><strong>Signature:</strong></p>
 <pre><code>yieldmat(settlement, maturity, issue, rate, price, basis)</code></pre>
-<p><strong>Example:</strong> The same note from above now trades at $98.50 in the secondary market (bought 3 months (actually 91 days because 2028 is a leap year) after issuance, April 1, 2028). What yield does that imply?</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>    yieldmat(<span class="st">&#39;2028-04-01&#39;</span>, <span class="st">&#39;2029-01-01&#39;</span>, <span class="st">&#39;2028-01-01&#39;</span>, <span class="fl">0.05</span>, <span class="fl">98.50</span>, <span class="dv">1</span>),</span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">6</span></span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> yield_to_maturity;</span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: approximately 0.070144... = 7.0%</span></span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Higher yield because price has fallen — investor needs more return</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Example:</strong> The same note from above now trades at $98.50 in the secondary market (bought 3 months after issuance, April 1, 2028). What yield does that imply?</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    yieldmat(<span class="st">&#39;2028-04-01&#39;</span>, <span class="st">&#39;2029-01-01&#39;</span>, <span class="st">&#39;2028-01-01&#39;</span>, <span class="fl">0.05</span>, <span class="fl">98.50</span>, <span class="dv">1</span>),</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">6</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> yield_to_maturity;</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: approximately 0.0701... = 7.01%</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Higher yield because price has fallen — investor needs more return</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><strong>Round-trip verification:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    <span class="fl">98.50</span>                                                                <span class="kw">AS</span> observed_price,</span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(yieldmat(<span class="st">&#39;2028-04-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,<span class="st">&#39;2028-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="fl">98.50</span>,<span class="dv">1</span>),<span class="dv">6</span>)</span>
-<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> implied_yield,</span>
-<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(pricemat(<span class="st">&#39;2028-04-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,<span class="st">&#39;2028-01-01&#39;</span>,<span class="fl">0.05</span>,</span>
-<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>           yieldmat(<span class="st">&#39;2028-04-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,<span class="st">&#39;2028-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="fl">98.50</span>,<span class="dv">1</span>),</span>
-<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>           <span class="dv">1</span>), <span class="dv">4</span>)                                                        <span class="kw">AS</span> back_to_price;</span>
-<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- back_to_price should equal 98.50 ✓</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>    <span class="fl">98.50</span>                                                                <span class="kw">AS</span> observed_price,</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(yieldmat(<span class="st">&#39;2028-04-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,<span class="st">&#39;2028-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="fl">98.50</span>,<span class="dv">1</span>),<span class="dv">6</span>)</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> implied_yield,</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(pricemat(<span class="st">&#39;2028-04-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,<span class="st">&#39;2028-01-01&#39;</span>,<span class="fl">0.05</span>,</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>           yieldmat(<span class="st">&#39;2028-04-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,<span class="st">&#39;2028-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="fl">98.50</span>,<span class="dv">1</span>),</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>           <span class="dv">1</span>), <span class="dv">4</span>)                                                        <span class="kw">AS</span> back_to_price;</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- back_to_price should equal 98.50 ✓</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
 </section>
@@ -2557,21 +2643,21 @@ vertical-align: -.125em;
 <p><strong>Signature:</strong></p>
 <pre><code>intrate(settlement, maturity, investment, redemption, basis)</code></pre>
 <p><strong>Example:</strong> You invest $95,000 in a 9-month corporate CD on January 1, 2028. At maturity (October 1, 2028) you receive $100,000. What annual interest rate did you earn?</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>    intrate(<span class="st">&#39;2028-01-01&#39;</span>, <span class="st">&#39;2028-10-01&#39;</span>, <span class="dv">95000</span>, <span class="dv">100000</span>, <span class="dv">1</span>),</span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">6</span></span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> annual_interest_rate;</span>
-<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: approximately 0.070303 = 7.03%</span></span>
-<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Verify: rate = (100000-95000)/95000 × (365/273) ≈ 7.03%</span></span>
-<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>((<span class="dv">100000</span><span class="op">-</span><span class="dv">95000</span>)<span class="op">/</span><span class="fl">95000.0</span> <span class="op">*</span> (<span class="fl">365.0</span><span class="op">/</span><span class="dv">273</span>), <span class="dv">6</span>) <span class="kw">AS</span> manual_check;</span>
-<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- ✓ matches</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>    intrate(<span class="st">&#39;2028-01-01&#39;</span>, <span class="st">&#39;2028-10-01&#39;</span>, <span class="dv">95000</span>, <span class="dv">100000</span>, <span class="dv">1</span>),</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">6</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> annual_interest_rate;</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: approximately 0.070175 = 7.03%</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Verify: rate = (100000-95000)/95000 × (365/273) ≈ 7.03%</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>((<span class="dv">100000</span><span class="op">-</span><span class="dv">95000</span>)<span class="op">/</span><span class="fl">95000.0</span> <span class="op">*</span> (<span class="fl">365.0</span><span class="op">/</span><span class="dv">273</span>), <span class="dv">6</span>) <span class="kw">AS</span> manual_check;</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- ✓ matches</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><strong>Per $100 face value version:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>    intrate(<span class="st">&#39;2028-01-01&#39;</span>, <span class="st">&#39;2028-10-01&#39;</span>, <span class="dv">95</span>, <span class="dv">100</span>, <span class="dv">1</span>),</span>
-<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">6</span></span>
-<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> annual_rate;</span>
-<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Same result — the function is scale-invariant</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>    intrate(<span class="st">&#39;2028-01-01&#39;</span>, <span class="st">&#39;2028-10-01&#39;</span>, <span class="dv">95</span>, <span class="dv">100</span>, <span class="dv">1</span>),</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">6</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> annual_rate;</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Same result — the function is scale-invariant</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
 <section id="received-amount-received-at-maturity" class="level3">
@@ -2593,38 +2679,38 @@ vertical-align: -.125em;
 </div>
 </div>
 <p><strong>Example:</strong> You invest $95,000 at a 6.5% discount rate for 9 months. How much do you receive at maturity?</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>    received(<span class="st">&#39;2028-01-01&#39;</span>, <span class="st">&#39;2028-10-01&#39;</span>, <span class="dv">95000</span>, <span class="fl">0.065</span>, <span class="dv">1</span>),</span>
-<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">2</span></span>
-<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> amount_at_maturity;</span>
-<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: $99,859.27 </span></span>
-<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Show the gain</span></span>
-<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>    <span class="dv">95000</span>                                                      <span class="kw">AS</span> invested,</span>
-<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(received(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-10-01&#39;</span>,<span class="dv">95000</span>,<span class="fl">0.065</span>,<span class="dv">1</span>),<span class="dv">2</span>) <span class="kw">AS</span> received_at_maturity,</span>
-<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(received(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-10-01&#39;</span>,<span class="dv">95000</span>,<span class="fl">0.065</span>,<span class="dv">1</span>)</span>
-<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>          <span class="op">-</span> <span class="dv">95000</span>, <span class="dv">2</span>)                                          <span class="kw">AS</span> total_gain;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>    received(<span class="st">&#39;2028-01-01&#39;</span>, <span class="st">&#39;2028-10-01&#39;</span>, <span class="dv">95000</span>, <span class="fl">0.065</span>, <span class="dv">1</span>),</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">2</span></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> amount_at_maturity;</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: approximately $99,859.27</span></span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Show the gain</span></span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>    <span class="dv">95000</span>                                                      <span class="kw">AS</span> invested,</span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(received(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-10-01&#39;</span>,<span class="dv">95000</span>,<span class="fl">0.065</span>,<span class="dv">1</span>),<span class="dv">2</span>) <span class="kw">AS</span> received_at_maturity,</span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(received(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-10-01&#39;</span>,<span class="dv">95000</span>,<span class="fl">0.065</span>,<span class="dv">1</span>)</span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a>          <span class="op">-</span> <span class="dv">95000</span>, <span class="dv">2</span>)                                          <span class="kw">AS</span> total_gain;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><strong><code>intrate</code> and <code>received</code> together — a CD analysis:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Analyse a corporate CD: invested $50,000, receive $53,500 in 1 year</span></span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> cd <span class="kw">AS</span> (</span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span></span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;2028-01-01&#39;</span> <span class="kw">AS</span> settlement,</span>
-<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;2029-01-01&#39;</span> <span class="kw">AS</span> maturity,</span>
-<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>        <span class="fl">50000.0</span>      <span class="kw">AS</span> investment,</span>
-<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>        <span class="fl">53500.0</span>      <span class="kw">AS</span> redemption</span>
-<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>    investment,</span>
-<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>    redemption,</span>
-<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>    redemption <span class="op">-</span> investment                                           <span class="kw">AS</span> gain,</span>
-<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(intrate(settlement, maturity, investment, redemption, <span class="dv">1</span>), <span class="dv">4</span>)</span>
-<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> annual_rate,</span>
-<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- What would we receive if we reinvested at the same rate?</span></span>
-<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(received(settlement, maturity, investment,</span>
-<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a>                   intrate(settlement, maturity, investment, redemption, <span class="dv">1</span>), <span class="dv">1</span>), <span class="dv">2</span>)</span>
-<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> received_check</span>
-<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> cd;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Analyse a corporate CD: invested $50,000, receive $53,500 in 1 year</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> cd <span class="kw">AS</span> (</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;2028-01-01&#39;</span> <span class="kw">AS</span> settlement,</span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;2029-01-01&#39;</span> <span class="kw">AS</span> maturity,</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>        <span class="fl">50000.0</span>      <span class="kw">AS</span> investment,</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>        <span class="fl">53500.0</span>      <span class="kw">AS</span> redemption</span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>    investment,</span>
+<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>    redemption,</span>
+<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>    redemption <span class="op">-</span> investment                                           <span class="kw">AS</span> gain,</span>
+<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(intrate(settlement, maturity, investment, redemption, <span class="dv">1</span>), <span class="dv">4</span>)</span>
+<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> annual_rate,</span>
+<span id="cb25-15"><a href="#cb25-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- What would we receive if we reinvested at the same rate?</span></span>
+<span id="cb25-16"><a href="#cb25-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(received(settlement, maturity, investment,</span>
+<span id="cb25-17"><a href="#cb25-17" aria-hidden="true" tabindex="-1"></a>                   intrate(settlement, maturity, investment, redemption, <span class="dv">1</span>), <span class="dv">1</span>), <span class="dv">2</span>)</span>
+<span id="cb25-18"><a href="#cb25-18" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> received_check</span>
+<span id="cb25-19"><a href="#cb25-19" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> cd;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
 </section>
@@ -2680,40 +2766,40 @@ vertical-align: -.125em;
 </tbody>
 </table>
 <p><strong>Example:</strong> Apple Inc 4.4% notes issued January 15, 2028 pay semiannual coupons on January 15 and July 15. You buy on June 30, 2028 — 5.5 months into the coupon period. How much accrued interest do you owe the seller?</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Accrued interest on a semiannual coupon bond</span></span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>    accrint(<span class="st">&#39;2028-01-15&#39;</span>, <span class="st">&#39;2028-07-15&#39;</span>, <span class="st">&#39;2028-06-30&#39;</span>, <span class="fl">0.044</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">1</span>),</span>
-<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>    <span class="dv">4</span></span>
-<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> accrued_interest;</span>
-<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: approximately 2.0077</span></span>
-<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- You owe the seller ~$2.01 per $100 face value in accrued interest</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Accrued interest on a semiannual coupon bond</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>    accrint(<span class="st">&#39;2028-01-15&#39;</span>, <span class="st">&#39;2028-07-15&#39;</span>, <span class="st">&#39;2028-06-30&#39;</span>, <span class="fl">0.044</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">1</span>),</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>    <span class="dv">4</span></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> accrued_interest;</span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: approximately 2.0077</span></span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- You owe the seller ~$2.01 per $100 face value in accrued interest</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><strong>Show the full settlement calculation:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb26"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> bond <span class="kw">AS</span> (</span>
-<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span></span>
-<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;2028-01-15&#39;</span> <span class="kw">AS</span> issue,</span>
-<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;2028-07-15&#39;</span> <span class="kw">AS</span> first_interest,</span>
-<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;2028-06-30&#39;</span> <span class="kw">AS</span> settlement,</span>
-<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0.044</span>        <span class="kw">AS</span> coupon_rate,</span>
-<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a>        <span class="dv">100</span>          <span class="kw">AS</span> par,</span>
-<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a>        <span class="dv">2</span>            <span class="kw">AS</span> frequency</span>
-<span id="cb26-9"><a href="#cb26-9" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb26-10"><a href="#cb26-10" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb26-11"><a href="#cb26-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Clean price (from the market)</span></span>
-<span id="cb26-12"><a href="#cb26-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(price(settlement, <span class="st">&#39;2033-01-15&#39;</span>, coupon_rate, <span class="fl">0.0454</span>, par,</span>
-<span id="cb26-13"><a href="#cb26-13" aria-hidden="true" tabindex="-1"></a>                frequency, <span class="dv">1</span>), <span class="dv">4</span>)                                  <span class="kw">AS</span> clean_price,</span>
-<span id="cb26-14"><a href="#cb26-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Accrued interest</span></span>
-<span id="cb26-15"><a href="#cb26-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(accrint(issue, first_interest, settlement,</span>
-<span id="cb26-16"><a href="#cb26-16" aria-hidden="true" tabindex="-1"></a>                  coupon_rate, par, frequency, <span class="dv">1</span>), <span class="dv">4</span>)              <span class="kw">AS</span> accrued_interest,</span>
-<span id="cb26-17"><a href="#cb26-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Dirty price = what buyer actually pays</span></span>
-<span id="cb26-18"><a href="#cb26-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(price(settlement,<span class="st">&#39;2033-01-15&#39;</span>,coupon_rate,<span class="fl">0.0454</span>,par,frequency,<span class="dv">1</span>)</span>
-<span id="cb26-19"><a href="#cb26-19" aria-hidden="true" tabindex="-1"></a>          <span class="op">+</span> accrint(issue,first_interest,settlement,coupon_rate,par,frequency,<span class="dv">1</span>),</span>
-<span id="cb26-20"><a href="#cb26-20" aria-hidden="true" tabindex="-1"></a>          <span class="dv">4</span>)                                                        <span class="kw">AS</span> dirty_price</span>
-<span id="cb26-21"><a href="#cb26-21" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> bond;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb28"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> bond <span class="kw">AS</span> (</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;2028-01-15&#39;</span> <span class="kw">AS</span> issue,</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;2028-07-15&#39;</span> <span class="kw">AS</span> first_interest,</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;2028-06-30&#39;</span> <span class="kw">AS</span> settlement,</span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0.044</span>        <span class="kw">AS</span> coupon_rate,</span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>        <span class="dv">100</span>          <span class="kw">AS</span> par,</span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>        <span class="dv">2</span>            <span class="kw">AS</span> frequency</span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Clean price (from the market)</span></span>
+<span id="cb28-12"><a href="#cb28-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(price(settlement, <span class="st">&#39;2033-01-15&#39;</span>, coupon_rate, <span class="fl">0.0454</span>, par,</span>
+<span id="cb28-13"><a href="#cb28-13" aria-hidden="true" tabindex="-1"></a>                frequency, <span class="dv">1</span>), <span class="dv">4</span>)                                  <span class="kw">AS</span> clean_price,</span>
+<span id="cb28-14"><a href="#cb28-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Accrued interest</span></span>
+<span id="cb28-15"><a href="#cb28-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(accrint(issue, first_interest, settlement,</span>
+<span id="cb28-16"><a href="#cb28-16" aria-hidden="true" tabindex="-1"></a>                  coupon_rate, par, frequency, <span class="dv">1</span>), <span class="dv">4</span>)              <span class="kw">AS</span> accrued_interest,</span>
+<span id="cb28-17"><a href="#cb28-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Dirty price = what buyer actually pays</span></span>
+<span id="cb28-18"><a href="#cb28-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(price(settlement,<span class="st">&#39;2033-01-15&#39;</span>,coupon_rate,<span class="fl">0.0454</span>,par,frequency,<span class="dv">1</span>)</span>
+<span id="cb28-19"><a href="#cb28-19" aria-hidden="true" tabindex="-1"></a>          <span class="op">+</span> accrint(issue,first_interest,settlement,coupon_rate,par,frequency,<span class="dv">1</span>),</span>
+<span id="cb28-20"><a href="#cb28-20" aria-hidden="true" tabindex="-1"></a>          <span class="dv">4</span>)                                                        <span class="kw">AS</span> dirty_price</span>
+<span id="cb28-21"><a href="#cb28-21" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> bond;</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><strong>Scale to a $500,000 position:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(accrint(<span class="st">&#39;2028-01-15&#39;</span>,<span class="st">&#39;2028-07-15&#39;</span>,<span class="st">&#39;2028-06-30&#39;</span>,<span class="fl">0.044</span>,<span class="dv">100</span>,<span class="dv">2</span>,<span class="dv">1</span>)</span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>          <span class="op">/</span> <span class="dv">100</span> <span class="op">*</span> <span class="dv">500000</span>, <span class="dv">2</span>)                                        <span class="kw">AS</span> accrued_on_500k;</span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Total accrued interest owed on a $500,000 face-value position</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(accrint(<span class="st">&#39;2028-01-15&#39;</span>,<span class="st">&#39;2028-07-15&#39;</span>,<span class="st">&#39;2028-06-30&#39;</span>,<span class="fl">0.044</span>,<span class="dv">100</span>,<span class="dv">2</span>,<span class="dv">1</span>)</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>          <span class="op">/</span> <span class="dv">100</span> <span class="op">*</span> <span class="dv">500000</span>, <span class="dv">2</span>)                                        <span class="kw">AS</span> accrued_on_500k;</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Total accrued interest owed on a $500,000 face-value position</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
 <section id="accrintm-accrued-interest-at-maturity" class="level3">
@@ -2765,33 +2851,33 @@ vertical-align: -.125em;
 </div>
 </div>
 <p><strong>Example:</strong> A 2-year zero-coupon style corporate note issued January 1, 2028 pays 5% interest at maturity (January 1, 2030). How much interest accrues over the full 2-year period?</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Accrued interest at maturity for a maturity-interest security</span></span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
-<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>    accrintm(<span class="st">&#39;2028-01-01&#39;</span>, <span class="st">&#39;2030-01-01&#39;</span>, <span class="fl">0.05</span>, <span class="dv">100</span>, <span class="dv">1</span>),</span>
-<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>    <span class="dv">4</span></span>
-<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> total_accrued_interest;</span>
-<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 10.0000</span></span>
-<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- $5 per year × 2 years = $10 total interest per $100 face</span></span>
-<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- Investor receives $110 at maturity ($100 face + $10 interest)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Accrued interest at maturity for a maturity-interest security</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>    accrintm(<span class="st">&#39;2028-01-01&#39;</span>, <span class="st">&#39;2030-01-01&#39;</span>, <span class="fl">0.05</span>, <span class="dv">100</span>, <span class="dv">1</span>),</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>    <span class="dv">4</span></span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> total_accrued_interest;</span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 10.0000</span></span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- $5 per year × 2 years = $10 total interest per $100 face</span></span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- Investor receives $110 at maturity ($100 face + $10 interest)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><strong>Partial period — buying in the secondary market:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb30"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Investor buys the note on July 1, 2029 (18 months after issue)</span></span>
-<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- How much interest has already accrued?</span></span>
-<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
-<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>    accrintm(<span class="st">&#39;2028-01-01&#39;</span>, <span class="st">&#39;2029-07-01&#39;</span>, <span class="fl">0.05</span>, <span class="dv">100</span>, <span class="dv">1</span>),</span>
-<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>    <span class="dv">4</span></span>
-<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> accrued_to_purchase_date;</span>
-<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result:  7.4795</span></span>
-<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- $5 × 1.5 years = $ 7.48 — this is what the buyer owes the seller</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb32"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Investor buys the note on July 1, 2029 (18 months after issue)</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- How much interest has already accrued?</span></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(</span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>    accrintm(<span class="st">&#39;2028-01-01&#39;</span>, <span class="st">&#39;2029-07-01&#39;</span>, <span class="fl">0.05</span>, <span class="dv">100</span>, <span class="dv">1</span>),</span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>    <span class="dv">4</span></span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> accrued_to_purchase_date;</span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: 7.4795</span></span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- $5 × 1.5 years = $7.50 — this is what the buyer owes the seller</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><strong>Side-by-side: accrint vs accrintm for comparison:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Same underlying economics, different payment structure</span></span>
-<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
-<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Periodic bond: 5% semiannual, accrued for 1 year (2 periods)</span></span>
-<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(accrint(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="dv">100</span>,<span class="dv">2</span>,<span class="dv">1</span>), <span class="dv">4</span>)</span>
-<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> accrint_1year,</span>
-<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Maturity bond: 5% paid at maturity, accrued for 1 year</span></span>
-<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(accrintm(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="dv">100</span>,<span class="dv">1</span>), <span class="dv">4</span>)</span>
-<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> accrintm_1year;</span>
-<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- Both should equal 5.0000 for a clean 1-year period ✓</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Same underlying economics, different payment structure</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Periodic bond: 5% semiannual, accrued for 1 year (2 periods)</span></span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(accrint(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="dv">100</span>,<span class="dv">2</span>,<span class="dv">1</span>), <span class="dv">4</span>)</span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> accrint_1year,</span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Maturity bond: 5% paid at maturity, accrued for 1 year</span></span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(accrintm(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="dv">100</span>,<span class="dv">1</span>), <span class="dv">4</span>)</span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">AS</span> accrintm_1year;</span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- Both should equal 5.0000 for a clean 1-year period ✓</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
 </section>
@@ -2799,55 +2885,55 @@ vertical-align: -.125em;
 <h2 class="anchored" data-anchor-id="part-5-complete-function-reference">Part 5 — Complete Function Reference</h2>
 <section id="all-10-functions-quick-reference" class="level3">
 <h3 class="anchored" data-anchor-id="all-10-functions-quick-reference">All 10 Functions — Quick Reference</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb32"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Load extension first</span></span>
-<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- LOAD &#39;/path/to/financial_functions.duckdb_extension&#39;;</span></span>
-<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- ── Group 1: Discount Securities ─────────────────────────────────────────────</span></span>
-<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- pricedisc: price given discount rate</span></span>
-<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(pricedisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">0.055</span>,<span class="dv">100</span>,<span class="dv">2</span>),<span class="dv">4</span>) <span class="kw">AS</span> pricedisc;</span>
-<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- 97.2194</span></span>
-<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-10"><a href="#cb32-10" aria-hidden="true" tabindex="-1"></a><span class="co">-- yielddisc: discount rate given price</span></span>
-<span id="cb32-11"><a href="#cb32-11" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(yielddisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">97.25</span>,<span class="dv">100</span>,<span class="dv">2</span>),<span class="dv">6</span>) <span class="kw">AS</span> yielddisc;</span>
-<span id="cb32-12"><a href="#cb32-12" aria-hidden="true" tabindex="-1"></a><span class="co">--  0.055934 </span></span>
-<span id="cb32-13"><a href="#cb32-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-14"><a href="#cb32-14" aria-hidden="true" tabindex="-1"></a><span class="co">-- disc: discount rate (similar to yielddisc, different convention)</span></span>
-<span id="cb32-15"><a href="#cb32-15" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(disc(<span class="st">&#39;2028-04-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">98.50</span>,<span class="dv">100</span>,<span class="dv">2</span>),<span class="dv">6</span>) <span class="kw">AS</span> disc;</span>
-<span id="cb32-16"><a href="#cb32-16" aria-hidden="true" tabindex="-1"></a><span class="co">-- 0.059341</span></span>
-<span id="cb32-17"><a href="#cb32-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-18"><a href="#cb32-18" aria-hidden="true" tabindex="-1"></a><span class="co">-- ── Group 2: Maturity-Interest Securities ────────────────────────────────────</span></span>
-<span id="cb32-19"><a href="#cb32-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-20"><a href="#cb32-20" aria-hidden="true" tabindex="-1"></a><span class="co">-- pricemat: price of a maturity-interest security given yield</span></span>
-<span id="cb32-21"><a href="#cb32-21" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(pricemat(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,<span class="st">&#39;2028-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="fl">0.06</span>,<span class="dv">1</span>),<span class="dv">4</span>)</span>
-<span id="cb32-22"><a href="#cb32-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">AS</span> pricemat;</span>
-<span id="cb32-23"><a href="#cb32-23" aria-hidden="true" tabindex="-1"></a><span class="co">-- 99.0566</span></span>
-<span id="cb32-24"><a href="#cb32-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-25"><a href="#cb32-25" aria-hidden="true" tabindex="-1"></a><span class="co">-- yieldmat: yield of a maturity-interest security given price</span></span>
-<span id="cb32-26"><a href="#cb32-26" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(yieldmat(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,<span class="st">&#39;2028-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="fl">99.0566</span>,<span class="dv">1</span>),<span class="dv">6</span>)</span>
-<span id="cb32-27"><a href="#cb32-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">AS</span> yieldmat;</span>
-<span id="cb32-28"><a href="#cb32-28" aria-hidden="true" tabindex="-1"></a><span class="co">-- 0.060000</span></span>
-<span id="cb32-29"><a href="#cb32-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-30"><a href="#cb32-30" aria-hidden="true" tabindex="-1"></a><span class="co">-- ── Group 3: Fully Invested Securities ───────────────────────────────────────</span></span>
-<span id="cb32-31"><a href="#cb32-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-32"><a href="#cb32-32" aria-hidden="true" tabindex="-1"></a><span class="co">-- intrate: annual return rate for a fully invested security</span></span>
-<span id="cb32-33"><a href="#cb32-33" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(intrate(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-10-01&#39;</span>,<span class="dv">95000</span>,<span class="dv">100000</span>,<span class="dv">1</span>),<span class="dv">6</span>) <span class="kw">AS</span> intrate;</span>
-<span id="cb32-34"><a href="#cb32-34" aria-hidden="true" tabindex="-1"></a><span class="co">-- ~0.070303</span></span>
-<span id="cb32-35"><a href="#cb32-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-36"><a href="#cb32-36" aria-hidden="true" tabindex="-1"></a><span class="co">-- received: amount received at maturity given discount rate</span></span>
-<span id="cb32-37"><a href="#cb32-37" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(received(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-10-01&#39;</span>,<span class="dv">95000</span>,<span class="fl">0.065</span>,<span class="dv">1</span>),<span class="dv">2</span>) <span class="kw">AS</span> received;</span>
-<span id="cb32-38"><a href="#cb32-38" aria-hidden="true" tabindex="-1"></a><span class="co">-- ~99859.27</span></span>
-<span id="cb32-39"><a href="#cb32-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-40"><a href="#cb32-40" aria-hidden="true" tabindex="-1"></a><span class="co">-- ── Group 4: Accrued Interest ────────────────────────────────────────────────</span></span>
-<span id="cb32-41"><a href="#cb32-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-42"><a href="#cb32-42" aria-hidden="true" tabindex="-1"></a><span class="co">-- accrint: accrued interest for a periodic-coupon bond</span></span>
-<span id="cb32-43"><a href="#cb32-43" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(accrint(<span class="st">&#39;2028-01-15&#39;</span>,<span class="st">&#39;2028-07-15&#39;</span>,<span class="st">&#39;2028-06-30&#39;</span>,<span class="fl">0.044</span>,<span class="dv">100</span>,<span class="dv">2</span>,<span class="dv">1</span>),<span class="dv">4</span>)</span>
-<span id="cb32-44"><a href="#cb32-44" aria-hidden="true" tabindex="-1"></a>    <span class="kw">AS</span> accrint;</span>
-<span id="cb32-45"><a href="#cb32-45" aria-hidden="true" tabindex="-1"></a><span class="co">-- ~2.0077</span></span>
-<span id="cb32-46"><a href="#cb32-46" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-47"><a href="#cb32-47" aria-hidden="true" tabindex="-1"></a><span class="co">-- accrintm: accrued interest for a maturity-interest security</span></span>
-<span id="cb32-48"><a href="#cb32-48" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(accrintm(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2030-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="dv">100</span>,<span class="dv">1</span>),<span class="dv">4</span>) <span class="kw">AS</span> accrintm;</span>
-<span id="cb32-49"><a href="#cb32-49" aria-hidden="true" tabindex="-1"></a><span class="co">-- 10.0000</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb34"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Load extension first</span></span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- LOAD &#39;/path/to/financial_functions.duckdb_extension&#39;;</span></span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- ── Group 1: Discount Securities ─────────────────────────────────────────────</span></span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- pricedisc: price given discount rate</span></span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(pricedisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">0.055</span>,<span class="dv">100</span>,<span class="dv">2</span>),<span class="dv">4</span>) <span class="kw">AS</span> pricedisc;</span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a><span class="co">--  97.2194</span></span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a><span class="co">-- yielddisc: discount rate given price</span></span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(yielddisc(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">97.25</span>,<span class="dv">100</span>,<span class="dv">2</span>),<span class="dv">6</span>) <span class="kw">AS</span> yielddisc;</span>
+<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a><span class="co">--  0.055934</span></span>
+<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a><span class="co">-- disc: discount rate (similar to yielddisc, different convention)</span></span>
+<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(disc(<span class="st">&#39;2028-04-01&#39;</span>,<span class="st">&#39;2028-07-01&#39;</span>,<span class="fl">98.50</span>,<span class="dv">100</span>,<span class="dv">2</span>),<span class="dv">6</span>) <span class="kw">AS</span> disc;</span>
+<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a><span class="co">--  0.059341</span></span>
+<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-18"><a href="#cb34-18" aria-hidden="true" tabindex="-1"></a><span class="co">-- ── Group 2: Maturity-Interest Securities ────────────────────────────────────</span></span>
+<span id="cb34-19"><a href="#cb34-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-20"><a href="#cb34-20" aria-hidden="true" tabindex="-1"></a><span class="co">-- pricemat: price of a maturity-interest security given yield</span></span>
+<span id="cb34-21"><a href="#cb34-21" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(pricemat(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,<span class="st">&#39;2028-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="fl">0.06</span>,<span class="dv">1</span>),<span class="dv">4</span>)</span>
+<span id="cb34-22"><a href="#cb34-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">AS</span> pricemat;</span>
+<span id="cb34-23"><a href="#cb34-23" aria-hidden="true" tabindex="-1"></a><span class="co">-- 99.0566</span></span>
+<span id="cb34-24"><a href="#cb34-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-25"><a href="#cb34-25" aria-hidden="true" tabindex="-1"></a><span class="co">-- yieldmat: yield of a maturity-interest security given price</span></span>
+<span id="cb34-26"><a href="#cb34-26" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(yieldmat(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2029-01-01&#39;</span>,<span class="st">&#39;2028-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="fl">99.0566</span>,<span class="dv">1</span>),<span class="dv">6</span>)</span>
+<span id="cb34-27"><a href="#cb34-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">AS</span> yieldmat;</span>
+<span id="cb34-28"><a href="#cb34-28" aria-hidden="true" tabindex="-1"></a><span class="co">-- 0.060000</span></span>
+<span id="cb34-29"><a href="#cb34-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-30"><a href="#cb34-30" aria-hidden="true" tabindex="-1"></a><span class="co">-- ── Group 3: Fully Invested Securities ───────────────────────────────────────</span></span>
+<span id="cb34-31"><a href="#cb34-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-32"><a href="#cb34-32" aria-hidden="true" tabindex="-1"></a><span class="co">-- intrate: annual return rate for a fully invested security</span></span>
+<span id="cb34-33"><a href="#cb34-33" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(intrate(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-10-01&#39;</span>,<span class="dv">95000</span>,<span class="dv">100000</span>,<span class="dv">1</span>),<span class="dv">6</span>) <span class="kw">AS</span> intrate;</span>
+<span id="cb34-34"><a href="#cb34-34" aria-hidden="true" tabindex="-1"></a><span class="co">-- ~ 0.070303</span></span>
+<span id="cb34-35"><a href="#cb34-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-36"><a href="#cb34-36" aria-hidden="true" tabindex="-1"></a><span class="co">-- received: amount received at maturity given discount rate</span></span>
+<span id="cb34-37"><a href="#cb34-37" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(received(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2028-10-01&#39;</span>,<span class="dv">95000</span>,<span class="fl">0.065</span>,<span class="dv">1</span>),<span class="dv">2</span>) <span class="kw">AS</span> received;</span>
+<span id="cb34-38"><a href="#cb34-38" aria-hidden="true" tabindex="-1"></a><span class="co">-- ~99859.27</span></span>
+<span id="cb34-39"><a href="#cb34-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-40"><a href="#cb34-40" aria-hidden="true" tabindex="-1"></a><span class="co">-- ── Group 4: Accrued Interest ────────────────────────────────────────────────</span></span>
+<span id="cb34-41"><a href="#cb34-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-42"><a href="#cb34-42" aria-hidden="true" tabindex="-1"></a><span class="co">-- accrint: accrued interest for a periodic-coupon bond</span></span>
+<span id="cb34-43"><a href="#cb34-43" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(accrint(<span class="st">&#39;2028-01-15&#39;</span>,<span class="st">&#39;2028-07-15&#39;</span>,<span class="st">&#39;2028-06-30&#39;</span>,<span class="fl">0.044</span>,<span class="dv">100</span>,<span class="dv">2</span>,<span class="dv">1</span>),<span class="dv">4</span>)</span>
+<span id="cb34-44"><a href="#cb34-44" aria-hidden="true" tabindex="-1"></a>    <span class="kw">AS</span> accrint;</span>
+<span id="cb34-45"><a href="#cb34-45" aria-hidden="true" tabindex="-1"></a><span class="co">-- ~2.0077</span></span>
+<span id="cb34-46"><a href="#cb34-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-47"><a href="#cb34-47" aria-hidden="true" tabindex="-1"></a><span class="co">-- accrintm: accrued interest for a maturity-interest security</span></span>
+<span id="cb34-48"><a href="#cb34-48" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">ROUND</span>(accrintm(<span class="st">&#39;2028-01-01&#39;</span>,<span class="st">&#39;2030-01-01&#39;</span>,<span class="fl">0.05</span>,<span class="dv">100</span>,<span class="dv">1</span>),<span class="dv">4</span>) <span class="kw">AS</span> accrintm;</span>
+<span id="cb34-49"><a href="#cb34-49" aria-hidden="true" tabindex="-1"></a><span class="co">-- 10.0000</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
 </section>
